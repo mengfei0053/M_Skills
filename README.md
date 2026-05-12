@@ -9,34 +9,32 @@ M_Skills/
 ├── .agents/          # Agent 上下文配置
 ├── .claude/          # Claude Code 配置
 ├── skills/           # Skill 文档
-│   ├── dev/          #   开发相关
-│   ├── ops/          #   运维相关
-│   ├── ai/           #   AI/LLM 相关
-│   └── life/         #   日常生活
+│   └── harmonyos/    # HarmonyOS / OpenHarmony 相关技能
 ├── scripts/          # 可执行脚本
 └── templates/        # 配置模板
 ```
 
 ## 使用方式
 
-- **浏览 Skill**：进入 `skills/` 查看分类文档
-- **运行脚本**：`scripts/` 下直接执行
-- **复用模板**：`templates/` 下复制修改
+- **浏览 Skill**：进入 `skills/` 查看分类文档。
+- **运行脚本**：`scripts/` 下直接执行。
+- **复用模板**：`templates/` 下复制修改。
 
-## 新增 Skill
+## 新增 Skill 规范
 
-复制模板，填写场景、步骤、验证方法即可：
+每条 Skill 建议包含：
 
-```markdown
-# Skill 标题
+| 模块 | 说明 |
+|---|---|
+| 场景 | 什么情况下使用 |
+| 前置条件 | 需要什么环境、工具或权限 |
+| 步骤 | 可执行的操作流程 |
+| 测试 | 优先定义测试或验证方法 |
+| 验收 | 如何确认需求完成 |
+| 参考 | 相关文档链接 |
 
-## 场景
-什么情况下使用
+## 已有 Skills
 
-## 步骤
-1. xxx
-2. xxx
-
-## 验证
-如何确认
-```
+| Skill | 路径 | 用途 |
+|---|---|---|
+| HarmonyOS 应用性能优化 | `skills/harmonyos/harmonyos-performance-optimization/` | 分析、设计、评审和验证 HarmonyOS / OpenHarmony 应用性能优化方案 |
