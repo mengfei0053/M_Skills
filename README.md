@@ -53,3 +53,4 @@ M_Skills/
 | Auto Commit Push | `skills/user/auto-commit-push/` | 自动安全提交代码并推送远程，分叉时先 rebase，冲突时停止并报告 |
 | Worktree | `skills/user/worktree/` | 为单个需求创建独立 Git worktree 和任务分支，隔离开发并保持主分支干净 |
 | Apply Worktree | `skills/user/apply-worktree/` | 将 worktree 开发内容合并回主项目分支，验证通过后清理 worktree 和任务分支 |
+| Programming Standards | `skills/user/programming-standards/` | 通用编程规范：单一职责、函数简短、防御性编程、可测试性与代码评审标准 |
