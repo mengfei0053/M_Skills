@@ -1,16 +1,31 @@
 # Installation
 
-## 安装说明
+## 安装文档说明
 
-M_Skills 是个人常用 Skills 收集仓库，主要通过 Git 克隆后在本地阅读、复制或集成到对应 Agent / 工具环境中使用。
+本文档说明 M_Skills 的安装策略与适用范围；具体可复制执行的命令请查看：
+
+https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main/docs/install-commands.md
+
+## 安装策略
+
+| Skill 来源目录 | 安装级别 | 目标位置 | 适用场景 |
+|---|---|---|---|
+| `skills/user/` | 用户级别 | Claude、OpenCode、Cursor 的用户配置目录 | 通用 Git / worktree / 自动提交等跨项目技能 |
+| `skills/harmonyos/` | 当前项目级别 | 当前项目内的 Agent / Claude / OpenCode / Cursor 配置目录 | 仅在 HarmonyOS / OpenHarmony 项目中启用 |
+
+## 为什么要区分
+
+- `skills/user/` 是通用能力，适合安装到用户级别，所有项目都可以复用。
+- `skills/harmonyos/` 是技术栈专用能力，只应安装到当前 HarmonyOS 项目，避免污染非鸿蒙项目上下文。
+- 安装文档负责说明策略；安装命令负责提供可执行脚本和命令。
 
 ## 前置条件
 
 | 依赖 | 说明 |
 |---|---|
 | Git | 用于克隆仓库和同步更新 |
-| Markdown 阅读器 | 用于阅读 `README.md` 与各 Skill 文档 |
-| Agent 工具环境 | 按需将 Skill 内容复制或引用到实际使用的 Agent 环境 |
+| Bash | 用于执行安装脚本 |
+| Claude / OpenCode / Cursor | 按需安装，脚本会写入对应配置目录 |
 
 ## 克隆仓库
 
@@ -24,35 +39,32 @@ cd M_Skills
 ```text
 M_Skills/
 ├── docs/             # 安装、使用与说明文档
+├── scripts/          # 安装脚本与辅助脚本
 ├── skills/           # Skill 文档
-│   ├── harmonyos/    # HarmonyOS / OpenHarmony 相关技能
-│   └── user/         # 用户通用 Skills
-├── scripts/          # 可执行脚本
+│   ├── harmonyos/    # 安装到当前项目
+│   └── user/         # 安装到用户级别
 └── templates/        # 配置模板
 ```
 
-## 使用 Skill
+## 安装入口
 
-1. 进入 `skills/` 目录。
-2. 选择需要的 Skill，例如：
-
-   ```bash
-   open skills/user/worktree/SKILL.md
-   ```
-
-3. 按 Skill 文档中的 `When to Use`、`Workflow`、`Verification Checklist` 执行。
-4. 如果需要集成到其他 Agent 环境，可复制对应 `SKILL.md` 到目标工具支持的 Skills 目录。
-
-## 更新仓库
-
-```bash
-git pull --ff-only
-```
+| 目标 | 命令 |
+|---|---|
+| 安装用户级 Skills | `bash scripts/install-user-skills.sh` |
+| 安装 HarmonyOS Skills 到当前项目 | `bash scripts/install-project-harmonyos-skills.sh /path/to/project` |
 
 ## 验证安装
 
+安装命令执行后，可按目标检查文件：
+
 ```bash
-find skills -maxdepth 3 -name SKILL.md | sort
+find ~/.claude/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
+find ~/.config/opencode/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
+find ~/.cursor/rules -maxdepth 1 -name 'm-skills-*.mdc' 2>/dev/null | sort
 ```
 
-能看到 Skill 文档列表即表示仓库已成功获取。
+项目级 HarmonyOS 安装可在目标项目中检查：
+
+```bash
+find .agents .claude .opencode .cursor -maxdepth 4 2>/dev/null | sort
+```

@@ -18,8 +18,12 @@ M_Skills/
 
 ## 安装
 
-Install and configure M_Skills by following the instructions here:
-https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main/docs/installation.md
+| 类型 | 链接 |
+|---|---|
+| 安装文档 | https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main/docs/installation.md |
+| 安装命令 | https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main/docs/install-commands.md |
+
+安装策略：`skills/user/` 安装到用户级别的 Claude / OpenCode / Cursor 配置中；`skills/harmonyos/` 安装到当前项目中。
 
 ## 使用方式
 
