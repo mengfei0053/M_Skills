@@ -22,5 +22,5 @@ This AGENTS.md scopes guidance to `scripts`. Parent AGENTS guidance still applie
 ## Local Notes
 - 脚本使用 Bash，保持 `set -euo pipefail`，避免依赖调用方当前目录。
 - 修改脚本后至少运行 `bash -n scripts/*.sh`；若逻辑可安全演练，再做非破坏性 smoke test。
-- 安装目标或输出格式变化时，同步更新 `docs/install-commands.md`、`docs/installation.md` 和 `docs/repo-init.md`。
+- 安装目标或输出格式变化时，同步更新 `docs/installation.md` 和 `docs/repo-init.md`。
 <!-- OMX:AGENTS-INIT:MANUAL:END -->

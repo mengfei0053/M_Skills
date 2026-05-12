@@ -12,7 +12,6 @@ This AGENTS.md scopes guidance to `docs`. Parent AGENTS guidance still applies u
 ## Current Layout
 
 ### Files
-- `install-commands.md`
 - `installation.md`
 
 ### Subdirectories
@@ -20,7 +19,7 @@ This AGENTS.md scopes guidance to `docs`. Parent AGENTS guidance still applies u
 
 <!-- OMX:AGENTS-INIT:MANUAL:START -->
 ## Local Notes
-- `installation.md` 负责解释安装策略；`install-commands.md` 只放可复制执行的命令。
-- 新增或调整安装脚本、安装目标、Skill 分类后，必须同步更新这两个安装文档和 `docs/repo-init.md`。
-- 文档示例命令优先保持可直接复制执行，避免把策略说明混入命令文档。
+- `installation.md` 负责解释安装策略并提供可复制执行的命令。
+- 新增或调整安装脚本、安装目标、Skill 分类后，必须同步更新 `installation.md` 和 `docs/repo-init.md`。
+- 文档示例命令优先保持可直接复制执行。
 <!-- OMX:AGENTS-INIT:MANUAL:END -->

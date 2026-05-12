@@ -3,6 +3,7 @@ set -euo pipefail
 
 # Install all skills under skills/user into user-level tool configuration directories.
 # Targets:
+# - Agent common: ~/.agents/skills/<skill>/SKILL.md
 # - Claude Code: ~/.claude/skills/<skill>/SKILL.md
 # - OpenCode: ~/.config/opencode/skills/<skill>/SKILL.md
 # - Cursor: ~/.cursor/rules/m-skills-<skill>.mdc
@@ -46,6 +47,7 @@ for skill_dir in "$USER_SKILLS_DIR"/*; do
   src="$skill_dir/SKILL.md"
   [ -f "$src" ] || continue
 
+  install_skill_file "$src" "$HOME/.agents/skills/$skill_name/SKILL.md"
   install_skill_file "$src" "$HOME/.claude/skills/$skill_name/SKILL.md"
   install_skill_file "$src" "$HOME/.config/opencode/skills/$skill_name/SKILL.md"
   install_cursor_rule "$skill_name" "$src"

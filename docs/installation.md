@@ -2,15 +2,13 @@
 
 ## 安装文档说明
 
-本文档说明 M_Skills 的安装策略与适用范围；具体可复制执行的命令请查看：
-
-https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main/docs/install-commands.md
+本文档说明 M_Skills 的安装策略、适用范围和可复制执行的安装命令。
 
 ## 安装策略
 
 | Skill 来源目录 | 安装级别 | 目标位置 | 适用场景 |
 |---|---|---|---|
-| `skills/user/` | 用户级别 | Claude、OpenCode、Cursor 的用户配置目录 | 通用 Git / worktree / 自动提交等跨项目技能 |
+| `skills/user/` | 用户级别 | Agent 通用、Claude、OpenCode、Cursor 的用户配置目录 | 通用 Git / worktree / 自动提交等跨项目技能 |
 | `skills/harmonyos/` | 当前项目级别 | 当前项目内的 Agent / Claude / OpenCode / Cursor 配置目录 | 仅在 HarmonyOS / OpenHarmony 项目中启用 |
 
 ## 为什么要区分
@@ -58,6 +56,7 @@ M_Skills/
 安装命令执行后，可按目标检查文件：
 
 ```bash
+find ~/.agents/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.claude/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.config/opencode/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.cursor/rules -maxdepth 1 -name 'm-skills-*.mdc' 2>/dev/null | sort

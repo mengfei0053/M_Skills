@@ -19,12 +19,9 @@ M_Skills 是个人常用 Skills 收集仓库，用于沉淀可复用的工作流
 | 路径 | 说明 | 维护要求 |
 |---|---|---|
 | `AGENTS.md` | OMX 生成的仓库级 Agent 指导文件 | 在保留 managed 区域的前提下，只在 Local Notes 写项目级约定 |
-| `.agents/AGENTS.md` | 项目原有 Agent 上下文与 Skill 模板 | Skill 模板或使命变化时同步更新 |
-| `.claude/settings.json` | Claude Code 项目配置 | 配置变化时记录原因 |
 | `.gitignore` | 忽略本地运行态文件 | 当前忽略 `.omx/`，避免提交会话状态 |
 | `README.md` | 仓库入口说明与 Skill 清单 | 新增/删除/重命名 Skill 时必须更新 |
 | `docs/installation.md` | 安装策略说明 | 安装范围、目标目录变化时更新 |
-| `docs/install-commands.md` | 可复制执行的安装命令 | 脚本参数、命令示例变化时更新 |
 | `docs/repo-init.md` | 深度初始化记录 | 后续结构或规则变化时更新 |
 | `scripts/install-user-skills.sh` | 安装 `skills/user/` 到用户级工具配置 | 修改后运行 `bash -n scripts/*.sh` |
 | `scripts/install-project-harmonyos-skills.sh` | 安装 `skills/harmonyos/` 到目标项目 | 修改后运行 `bash -n scripts/*.sh` |
@@ -46,7 +43,7 @@ M_Skills 是个人常用 Skills 收集仓库，用于沉淀可复用的工作流
 
 | 来源 | 安装级别 | 目标 |
 |---|---|---|
-| `skills/user/` | 用户级 | `~/.claude/skills/`、`~/.config/opencode/skills/`、`~/.cursor/rules/` |
+| `skills/user/` | 用户级 | `~/.agents/skills/`、`~/.claude/skills/`、`~/.config/opencode/skills/`、`~/.cursor/rules/` |
 | `skills/harmonyos/` | 项目级 | 目标项目内 `.agents/skills/`、`.claude/skills/`、`.opencode/skills/`、`.cursor/rules/` |
 
 安装入口：
@@ -62,11 +59,11 @@ bash scripts/install-project-harmonyos-skills.sh /path/to/harmonyos-project
 
 | 变更类型 | 必须同步更新 |
 |---|---|
-| 新增 / 删除 / 重命名 Skill | `README.md`、`docs/repo-init.md`、必要时 `.agents/AGENTS.md` |
-| 调整 Skill 分类或安装级别 | `README.md`、`docs/installation.md`、`docs/install-commands.md`、`docs/repo-init.md` |
-| 修改安装脚本参数或目标路径 | `docs/installation.md`、`docs/install-commands.md`、`docs/repo-init.md` |
+| 新增 / 删除 / 重命名 Skill | `README.md`、`docs/repo-init.md` |
+| 调整 Skill 分类或安装级别 | `README.md`、`docs/installation.md`、`docs/repo-init.md` |
+| 修改安装脚本参数或目标路径 | `docs/installation.md`、`docs/repo-init.md` |
 | 新增模板 | `README.md` 或 `docs/repo-init.md` |
-| 修改 Agent 约定 | `AGENTS.md` Local Notes、`.agents/AGENTS.md`、必要时相关子目录 `AGENTS.md` |
+| 修改 Agent 约定 | `AGENTS.md` Local Notes、必要时相关子目录 `AGENTS.md` |
 
 ## 验证命令
 
@@ -84,5 +81,4 @@ find docs scripts skills -maxdepth 3 -type f | sort
 
 - 不要把 `.omx/` 运行态文件当作项目文档维护；它是本地会话状态。
 - `AGENTS.md` 为 OMX managed 文件，刷新时会保留 Local Notes；项目约定尽量写在 Local Notes 区块。
-- `.agents/AGENTS.md` 是项目原有轻量上下文，适合放使命、分类和 Skill 模板。
 - Cursor rule 由脚本包装 frontmatter 后生成，源文件仍以 `SKILL.md` 为准。
