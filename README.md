@@ -9,7 +9,8 @@ M_Skills/
 ├── .agents/          # Agent 上下文配置
 ├── .claude/          # Claude Code 配置
 ├── skills/           # Skill 文档
-│   └── harmonyos/    # HarmonyOS / OpenHarmony 相关技能
+│   ├── harmonyos/    # HarmonyOS / OpenHarmony 相关技能
+│   └── user/         # 用户通用 Skills
 ├── scripts/          # 可执行脚本
 └── templates/        # 配置模板
 ```
@@ -38,3 +39,4 @@ M_Skills/
 | Skill | 路径 | 用途 |
 |---|---|---|
 | HarmonyOS 应用性能优化 | `skills/harmonyos/harmonyos-performance-optimization/` | 分析、设计、评审和验证 HarmonyOS / OpenHarmony 应用性能优化方案 |
+| 用户通用 Skills | `skills/user/` | 存放不限定具体技术栈、可跨场景复用的用户通用技能 |

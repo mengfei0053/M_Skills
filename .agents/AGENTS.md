@@ -16,6 +16,7 @@
 | 分类 | 目录 | 说明 |
 |---|---|---|
 | HarmonyOS | `skills/harmonyos/` | HarmonyOS / OpenHarmony 应用开发、性能优化、工程实践 |
+| User | `skills/user/` | 用户通用 Skills，不限定具体技术栈，适合跨场景复用 |
 
 ## Skill 模板
 
