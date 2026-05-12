@@ -18,6 +18,13 @@
 | HarmonyOS | `skills/harmonyos/` | HarmonyOS / OpenHarmony 应用开发、性能优化、工程实践 |
 | User | `skills/user/` | 用户通用 Skills，不限定具体技术栈，适合跨场景复用 |
 
+## Maintenance
+
+- 后续新增、删除、重命名 Skill 时，必须同步更新 `README.md` 和 `docs/repo-init.md`。
+- 安装脚本、安装路径、安装策略变化时，必须同步更新 `docs/installation.md` 和 `docs/install-commands.md`。
+- 修改脚本后至少运行 `bash -n scripts/*.sh`。
+- `AGENTS.md` 由 OMX 管理；项目约定写入 Local Notes，避免改动 managed 区域。
+
 ## Skill 模板
 
 ```markdown

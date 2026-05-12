@@ -1,56 +1,138 @@
 # M_Skills
 
-个人常用 Skills 收集仓库 — 记录和沉淀日常使用的脚本、工具链、工作流与配置模板。
+个人常用 Skills 收集仓库，用来沉淀可复用的 Agent 工作流、脚本和配置模板。
+
+## 适用范围
+
+本仓库把 Skills 分成两类：
+
+| 类型 | 目录 | 安装位置 | 适用场景 |
+|---|---|---|---|
+| 用户级通用 Skills | `skills/user/` | 当前用户的 Claude / OpenCode / Cursor 配置 | Git、worktree、提交、编程规范等跨项目能力 |
+| 项目级 HarmonyOS Skills | `skills/harmonyos/` | 指定 HarmonyOS / OpenHarmony 项目内部 | ArkTS、ArkUI、性能优化等技术栈专项能力 |
+
+这样可以让通用能力在所有项目中复用，同时避免 HarmonyOS 专项上下文污染其他项目。
+
+## 快速安装
+
+```bash
+git clone https://github.com/mengfei0053/M_Skills.git
+cd M_Skills
+```
+
+安装用户级通用 Skills：
+
+```bash
+bash scripts/install-user-skills.sh
+```
+
+安装 HarmonyOS Skills 到指定项目：
+
+```bash
+bash scripts/install-project-harmonyos-skills.sh /path/to/harmonyos-project
+```
+
+如果当前目录就是目标 HarmonyOS 项目，也可以直接执行：
+
+```bash
+/path/to/M_Skills/scripts/install-project-harmonyos-skills.sh "$PWD"
+```
+
+更多说明见：
+
+| 文档 | 地址 |
+|---|---|
+| 安装策略 | `docs/installation.md` |
+| 可复制命令 | `docs/install-commands.md` |
+| 深度初始化记录 | `docs/repo-init.md` |
+
+## 安装目标
+
+用户级 Skills 会安装到：
+
+| 工具 | 位置 |
+|---|---|
+| Claude | `~/.claude/skills/<skill>/SKILL.md` |
+| OpenCode | `~/.config/opencode/skills/<skill>/SKILL.md` |
+| Cursor | `~/.cursor/rules/m-skills-<skill>.mdc` |
+
+HarmonyOS 项目级 Skills 会安装到目标项目内：
+
+| 工具 | 位置 |
+|---|---|
+| Agent 通用 | `<project>/.agents/skills/<skill>/SKILL.md` |
+| Claude | `<project>/.claude/skills/<skill>/SKILL.md` |
+| OpenCode | `<project>/.opencode/skills/<skill>/SKILL.md` |
+| Cursor | `<project>/.cursor/rules/m-skills-<skill>.mdc` |
 
 ## 目录结构
 
-```
+```text
 M_Skills/
-├── .agents/          # Agent 上下文配置
-├── .claude/          # Claude Code 配置
 ├── docs/             # 安装、使用与说明文档
+├── scripts/          # 安装脚本与辅助脚本
 ├── skills/           # Skill 文档
-│   ├── harmonyos/    # HarmonyOS / OpenHarmony 相关技能
-│   └── user/         # 用户通用 Skills
-├── scripts/          # 可执行脚本
-└── templates/        # 配置模板
+│   ├── harmonyos/    # HarmonyOS / OpenHarmony 项目级 Skills
+│   └── user/         # 用户级通用 Skills
+└── templates/        # 可复用配置或文档模板
 ```
-
-## 安装
-
-| 类型 | 链接 |
-|---|---|
-| 安装文档 | https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main/docs/installation.md |
-| 安装命令 | https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main/docs/install-commands.md |
-
-安装策略：`skills/user/` 安装到用户级别的 Claude / OpenCode / Cursor 配置中；`skills/harmonyos/` 安装到当前项目中。
-
-## 使用方式
-
-- **浏览 Skill**：进入 `skills/` 查看分类文档。
-- **运行脚本**：`scripts/` 下直接执行。
-- **复用模板**：`templates/` 下复制修改。
-
-## 新增 Skill 规范
-
-每条 Skill 建议包含：
-
-| 模块 | 说明 |
-|---|---|
-| 场景 | 什么情况下使用 |
-| 前置条件 | 需要什么环境、工具或权限 |
-| 步骤 | 可执行的操作流程 |
-| 测试 | 优先定义测试或验证方法 |
-| 验收 | 如何确认需求完成 |
-| 参考 | 相关文档链接 |
 
 ## 已有 Skills
 
 | Skill | 路径 | 用途 |
 |---|---|---|
-| HarmonyOS 应用性能优化 | `skills/harmonyos/harmonyos-performance-optimization/` | 分析、设计、评审和验证 HarmonyOS / OpenHarmony 应用性能优化方案 |
-| 用户通用 Skills | `skills/user/` | 存放不限定具体技术栈、可跨场景复用的用户通用技能 |
-| Auto Commit Push | `skills/user/auto-commit-push/` | 自动安全提交代码并推送远程，分叉时先 rebase，冲突时停止并报告 |
-| Worktree | `skills/user/worktree/` | 为单个需求创建独立 Git worktree 和任务分支，隔离开发并保持主分支干净 |
-| Apply Worktree | `skills/user/apply-worktree/` | 将 worktree 开发内容合并回主项目分支，验证通过后清理 worktree 和任务分支 |
-| Programming Standards | `skills/user/programming-standards/` | 通用编程规范：单一职责、函数简短、防御性编程、可测试性与代码评审标准 |
+| HarmonyOS Performance Optimization | `skills/harmonyos/harmonyos-performance-optimization/` | 分析、设计、评审和验证 HarmonyOS / OpenHarmony 应用性能优化方案 |
+| Apply Worktree | `skills/user/apply-worktree/` | 将 Git worktree 中完成的任务分支合并回主项目，并在验证后清理 worktree |
+| Auto Commit Push | `skills/user/auto-commit-push/` | 安全审查、提交并推送当前任务相关改动，分叉时先 rebase，冲突时停止报告 |
+| Programming Standards | `skills/user/programming-standards/` | 通用编程规范，覆盖职责、命名、防御性编程、错误处理、日志和可测试性 |
+| Worktree | `skills/user/worktree/` | 为单个需求创建独立 Git worktree 和任务分支，隔离开发过程 |
+
+## 使用方式
+
+- 浏览 `skills/`，按目录选择需要的 Skill。
+- 执行 `scripts/install-user-skills.sh` 同步用户级通用 Skills。
+- 执行 `scripts/install-project-harmonyos-skills.sh` 把 HarmonyOS Skills 安装到指定项目。
+- 在 `templates/` 中维护可复用模板；新增模板后同步补充用途说明。
+
+## 维护约定
+
+- 新增、删除、重命名 Skill 时，同步更新本 README 的 Skills 清单与 `docs/repo-init.md`。
+- 调整安装路径、脚本参数或安装策略时，同步更新 `docs/installation.md`、`docs/install-commands.md` 与 `docs/repo-init.md`。
+- 修改脚本后至少执行 `bash -n scripts/*.sh`。
+
+## 新增 Skill 规范
+
+新增 Skill 建议使用独立目录，并提供 `SKILL.md`：
+
+```text
+skills/<category>/<skill-name>/SKILL.md
+```
+
+`SKILL.md` 建议包含：
+
+| 模块 | 说明 |
+|---|---|
+| 元数据 | `name`、`description`、`version`、`author`、`license` |
+| Overview | 说明 Skill 目标和核心原则 |
+| When to Use | 明确适用场景和不适用场景 |
+| Required Inputs | 列出执行前必须知道的信息 |
+| Workflow | 给出可执行步骤 |
+| Verification | 定义测试、检查或验收方式 |
+| Safety | 说明必须停止、升级或人工判断的边界 |
+
+## 验证安装
+
+检查用户级安装结果：
+
+```bash
+find ~/.claude/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
+find ~/.config/opencode/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
+find ~/.cursor/rules -maxdepth 1 -name 'm-skills-*.mdc' 2>/dev/null | sort
+```
+
+检查项目级 HarmonyOS 安装结果：
+
+```bash
+cd /path/to/harmonyos-project
+find .agents .claude .opencode .cursor -maxdepth 4 2>/dev/null | sort
+```
