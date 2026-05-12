@@ -8,12 +8,18 @@
 M_Skills/
 ├── .agents/          # Agent 上下文配置
 ├── .claude/          # Claude Code 配置
+├── docs/             # 安装、使用与说明文档
 ├── skills/           # Skill 文档
 │   ├── harmonyos/    # HarmonyOS / OpenHarmony 相关技能
 │   └── user/         # 用户通用 Skills
 ├── scripts/          # 可执行脚本
 └── templates/        # 配置模板
 ```
+
+## 安装
+
+Install and configure M_Skills by following the instructions here:
+https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main/docs/installation.md
 
 ## 使用方式
 
