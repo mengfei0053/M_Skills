@@ -43,7 +43,6 @@ bash scripts/install-project-harmonyos-skills.sh /path/to/harmonyos-project
 | 文档 | 地址 |
 |---|---|
 | 安装策略 | `docs/installation.md` |
-| 可复制命令 | `docs/install-commands.md` |
 | 深度初始化记录 | `docs/repo-init.md` |
 
 ## 安装目标
@@ -52,6 +51,7 @@ bash scripts/install-project-harmonyos-skills.sh /path/to/harmonyos-project
 
 | 工具 | 位置 |
 |---|---|
+| Agent 通用 | `~/.agents/skills/<skill>/SKILL.md` |
 | Claude | `~/.claude/skills/<skill>/SKILL.md` |
 | OpenCode | `~/.config/opencode/skills/<skill>/SKILL.md` |
 | Cursor | `~/.cursor/rules/m-skills-<skill>.mdc` |
@@ -97,7 +97,7 @@ M_Skills/
 ## 维护约定
 
 - 新增、删除、重命名 Skill 时，同步更新本 README 的 Skills 清单与 `docs/repo-init.md`。
-- 调整安装路径、脚本参数或安装策略时，同步更新 `docs/installation.md`、`docs/install-commands.md` 与 `docs/repo-init.md`。
+- 调整安装路径、脚本参数或安装策略时，同步更新 `docs/installation.md` 与 `docs/repo-init.md`。
 - 修改脚本后至少执行 `bash -n scripts/*.sh`。
 
 ## 新增 Skill 规范
@@ -125,6 +125,7 @@ skills/<category>/<skill-name>/SKILL.md
 检查用户级安装结果：
 
 ```bash
+find ~/.agents/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.claude/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.config/opencode/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.cursor/rules -maxdepth 1 -name 'm-skills-*.mdc' 2>/dev/null | sort
