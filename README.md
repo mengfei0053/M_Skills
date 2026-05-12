@@ -9,7 +9,6 @@ M_Skills/
 ├── .agents/          # Agent 上下文配置
 ├── .claude/          # Claude Code 配置
 ├── skills/           # Skill 文档
-│   ├── git/          # Git 工作流自动化 Skills
 │   ├── harmonyos/    # HarmonyOS / OpenHarmony 相关技能
 │   └── user/         # 用户通用 Skills
 ├── scripts/          # 可执行脚本
@@ -39,6 +38,8 @@ M_Skills/
 
 | Skill | 路径 | 用途 |
 |---|---|---|
-| Auto Commit Push | `skills/git/auto-commit-push/` | 自动安全提交代码并推送远程，分叉时先 rebase，冲突时停止并报告 |
 | HarmonyOS 应用性能优化 | `skills/harmonyos/harmonyos-performance-optimization/` | 分析、设计、评审和验证 HarmonyOS / OpenHarmony 应用性能优化方案 |
 | 用户通用 Skills | `skills/user/` | 存放不限定具体技术栈、可跨场景复用的用户通用技能 |
+| Auto Commit Push | `skills/user/auto-commit-push/` | 自动安全提交代码并推送远程，分叉时先 rebase，冲突时停止并报告 |
+| Worktree | `skills/user/worktree/` | 为单个需求创建独立 Git worktree 和任务分支，隔离开发并保持主分支干净 |
+| Apply Worktree | `skills/user/apply-worktree/` | 将 worktree 开发内容合并回主项目分支，验证通过后清理 worktree 和任务分支 |
