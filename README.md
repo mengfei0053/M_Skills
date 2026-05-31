@@ -85,6 +85,7 @@ M_Skills/
 | Apply Worktree | `skills/user/apply-worktree/` | 将 Git worktree 中完成的任务分支合并回主项目，并在验证后清理 worktree |
 | Auto Commit Push | `skills/user/auto-commit-push/` | 安全审查、提交并推送当前任务相关改动，分叉时先 rebase，冲突时停止报告 |
 | Programming Standards | `skills/user/programming-standards/` | 通用编程规范，覆盖职责、命名、防御性编程、错误处理、日志和可测试性 |
+| Karpathy Guidelines | `skills/user/karpathy-guidelines/` | 减少 LLM 常见编码失误的行为准则：先思考、保持简单、精准改动、目标驱动验证 |
 | Worktree | `skills/user/worktree/` | 为单个需求创建独立 Git worktree 和任务分支，隔离开发过程 |
 
 ## 使用方式
