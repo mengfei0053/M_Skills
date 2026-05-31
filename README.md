@@ -26,6 +26,8 @@ cd M_Skills
 bash scripts/install-user-skills.sh
 ```
 
+脚本末尾还会从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 安装官方 `ima-skill`，并提示配置 IMA Client ID / API Key（写入 `~/.config/ima/`）。
+
 安装 HarmonyOS Skills 到指定项目：
 
 ```bash

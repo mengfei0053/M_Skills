@@ -23,4 +23,5 @@ This AGENTS.md scopes guidance to `scripts`. Parent AGENTS guidance still applie
 - 脚本使用 Bash，保持 `set -euo pipefail`，避免依赖调用方当前目录。
 - 修改脚本后至少运行 `bash -n scripts/*.sh`；若逻辑可安全演练，再做非破坏性 smoke test。
 - 安装目标或输出格式变化时，同步更新 `docs/installation.md` 和 `docs/repo-init.md`。
+- `install-user-skills.sh` 末尾会从 ima agent-interface 安装 `ima-skill` 并交互写入 `~/.config/ima/` 凭证。
 <!-- OMX:AGENTS-INIT:MANUAL:END -->

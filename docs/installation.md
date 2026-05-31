@@ -23,6 +23,8 @@
 |---|---|
 | Git | 用于克隆仓库和同步更新 |
 | Bash | 用于执行安装脚本 |
+| `curl` | 拉取 IMA agent-interface 页面与 skills 压缩包 |
+| `unzip` | 解压 IMA skills 压缩包 |
 | Claude / OpenCode / Cursor | 按需安装，脚本会写入对应配置目录 |
 
 ## 克隆仓库
@@ -51,6 +53,11 @@ M_Skills/
 | 安装用户级 Skills | `bash scripts/install-user-skills.sh` |
 | 安装 HarmonyOS Skills 到当前项目 | `bash scripts/install-project-harmonyos-skills.sh /path/to/project` |
 
+`install-user-skills.sh` 在完成 `skills/user/` 同步后，还会：
+
+1. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 页面解析最新 `ima-skills` 压缩包地址并下载安装到用户级 skills 目录（含 `ima-skill` 完整目录树）。
+2. 交互提示输入 IMA **Client ID** 与 **API Key**，写入 `~/.config/ima/client_id` 与 `~/.config/ima/api_key`（已存在则跳过）。
+
 ## 验证安装
 
 安装命令执行后，可按目标检查文件：
@@ -60,6 +67,8 @@ find ~/.agents/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.claude/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.config/opencode/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.cursor/rules -maxdepth 1 -name 'm-skills-*.mdc' 2>/dev/null | sort
+find ~/.agents/skills/ima-skill -maxdepth 2 -name 'SKILL.md' 2>/dev/null | sort
+ls -la ~/.config/ima/ 2>/dev/null
 ```
 
 项目级 HarmonyOS 安装可在目标项目中检查：
