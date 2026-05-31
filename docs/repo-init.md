@@ -37,6 +37,7 @@ M_Skills 是个人常用 Skills 收集仓库，用于沉淀可复用的工作流
 | `auto-commit-push` | `skills/user/auto-commit-push/SKILL.md` | 用户级通用 | 安全提交当前任务相关改动并推送，处理 fetch / rebase / 分叉场景 |
 | `programming-standards` | `skills/user/programming-standards/SKILL.md` | 用户级通用 | 通用代码质量、命名、错误处理、测试性和 Review 标准 |
 | `karpathy-guidelines` | `skills/user/karpathy-guidelines/SKILL.md` | 用户级通用 | 减少 LLM 常见编码失误：先思考、保持简单、精准改动、目标驱动验证 |
+| `deeb-init` | `skills/user/deeb-init/SKILL.md` | 用户级通用 | 深度扫描项目并生成/刷新根目录及 scoped 子目录 `AGENTS.md` |
 | `worktree` | `skills/user/worktree/SKILL.md` | 用户级通用 | 为单个需求创建隔离 Git worktree 与任务分支 |
 | `harmonyos-performance-optimization` | `skills/harmonyos/harmonyos-performance-optimization/SKILL.md` | HarmonyOS 项目级 | 指导 HarmonyOS / OpenHarmony 应用性能分析、优化、验证 |
 

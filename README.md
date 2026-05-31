@@ -86,6 +86,7 @@ M_Skills/
 | Auto Commit Push | `skills/user/auto-commit-push/` | 安全审查、提交并推送当前任务相关改动，分叉时先 rebase，冲突时停止报告 |
 | Programming Standards | `skills/user/programming-standards/` | 通用编程规范，覆盖职责、命名、防御性编程、错误处理、日志和可测试性 |
 | Karpathy Guidelines | `skills/user/karpathy-guidelines/` | 减少 LLM 常见编码失误的行为准则：先思考、保持简单、精准改动、目标驱动验证 |
+| Deeb Init | `skills/user/deeb-init/` | 深度扫描项目结构与技术栈，生成或刷新根目录及子目录 `AGENTS.md` |
 | Worktree | `skills/user/worktree/` | 为单个需求创建独立 Git worktree 和任务分支，隔离开发过程 |
 
 ## 使用方式
