@@ -23,6 +23,8 @@
 |---|---|
 | Git | 用于克隆仓库和同步更新 |
 | Bash | 用于执行安装脚本 |
+| Node.js 18+ | 安装 `@playwright/cli` |
+| `npm` | 全局安装 `@playwright/cli` |
 | `curl` | 拉取 IMA agent-interface 页面与 skills 压缩包 |
 | `unzip` | 解压 IMA skills 压缩包 |
 | Claude / OpenCode / Cursor | 按需安装，脚本会写入对应配置目录 |
@@ -55,8 +57,9 @@ M_Skills/
 
 `install-user-skills.sh` 在完成 `skills/user/` 同步后，还会：
 
-1. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 页面解析最新 `ima-skills` 压缩包地址并下载安装到用户级 skills 目录（含 `ima-skill` 完整目录树）。
-2. 交互提示输入 IMA **Client ID** 与 **API Key**，写入 `~/.config/ima/client_id` 与 `~/.config/ima/api_key`（已存在则跳过）。
+1. 全局安装 [@playwright/cli](https://github.com/microsoft/playwright-cli)，将 `playwright-cli` skill 复制到用户级 skills 目录，并执行 `playwright-cli install` 引导浏览器依赖。
+2. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 页面解析最新 `ima-skills` 压缩包地址并下载安装到用户级 skills 目录（含 `ima-skill` 完整目录树）。
+3. 交互提示输入 IMA **Client ID** 与 **API Key**，写入 `~/.config/ima/client_id` 与 `~/.config/ima/api_key`（已存在则跳过）。
 
 ## 验证安装
 
@@ -67,6 +70,8 @@ find ~/.agents/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.claude/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.config/opencode/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.cursor/rules -maxdepth 1 -name 'm-skills-*.mdc' 2>/dev/null | sort
+find ~/.agents/skills/playwright-cli -maxdepth 2 -name 'SKILL.md' 2>/dev/null | sort
+command -v playwright-cli && playwright-cli --help | head -5
 find ~/.agents/skills/ima-skill -maxdepth 2 -name 'SKILL.md' 2>/dev/null | sort
 ls -la ~/.config/ima/ 2>/dev/null
 ```

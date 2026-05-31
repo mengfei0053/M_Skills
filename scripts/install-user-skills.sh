@@ -55,6 +55,64 @@ done
 
 echo "User-level skills installation completed."
 
+# --- Playwright CLI + skills (https://github.com/microsoft/playwright-cli) ---
+PLAYWRIGHT_CLI_REPO_URL="https://github.com/microsoft/playwright-cli"
+
+install_playwright_cli_and_skills() {
+  local skill_src npm_global_root
+
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "npm is required to install playwright-cli (${PLAYWRIGHT_CLI_REPO_URL})" >&2
+    return 1
+  fi
+
+  if ! command -v node >/dev/null 2>&1; then
+    echo "Node.js 18+ is required to install playwright-cli" >&2
+    return 1
+  fi
+
+  echo ""
+  echo "Installing @playwright/cli globally (${PLAYWRIGHT_CLI_REPO_URL}) ..."
+  if ! npm install -g @playwright/cli@latest; then
+    echo "Failed to install @playwright/cli" >&2
+    return 1
+  fi
+
+  if ! command -v playwright-cli >/dev/null 2>&1; then
+    echo "playwright-cli not found in PATH after npm global install" >&2
+    echo "Ensure the npm global bin directory is on PATH, then re-run." >&2
+    return 1
+  fi
+
+  npm_global_root="$(npm root -g 2>/dev/null || true)"
+  skill_src="${npm_global_root}/@playwright/cli/skills/playwright-cli"
+  if [ ! -d "$skill_src" ] || [ ! -f "$skill_src/SKILL.md" ]; then
+    echo "playwright-cli skill bundle not found at ${skill_src}" >&2
+    return 1
+  fi
+
+  echo "Installing playwright-cli skill to user-level directories ..."
+  install_skill_tree "$skill_src" "$HOME/.agents/skills/playwright-cli"
+  install_skill_tree "$skill_src" "$HOME/.claude/skills/playwright-cli"
+  install_skill_tree "$skill_src" "$HOME/.config/opencode/skills/playwright-cli"
+  install_skill_tree "$skill_src" "$HOME/.openclaw/skills/playwright-cli"
+  install_skill_tree "$skill_src" "$HOME/.cursor/skills/playwright-cli"
+
+  echo "Bootstrapping Playwright browser dependencies (playwright-cli install) ..."
+  if ! (cd "$HOME" && playwright-cli install); then
+    echo "Warning: playwright-cli install failed; CLI is installed but browsers may be missing." >&2
+    return 1
+  fi
+
+  echo "playwright-cli installation completed."
+}
+
+if install_playwright_cli_and_skills; then
+  :
+else
+  echo "playwright-cli installation failed; install manually: npm install -g @playwright/cli@latest && playwright-cli install --skills" >&2
+fi
+
 # --- IMA skills (from https://ima.qq.com/agent-interface) ---
 IMA_AGENT_INTERFACE_URL="https://ima.qq.com/agent-interface"
 IMA_CONFIG_DIR="${HOME}/.config/ima"
@@ -81,13 +139,17 @@ fetch_ima_skills_download_url() {
   printf '%s' "$download_url"
 }
 
-install_ima_skill_tree() {
+install_skill_tree() {
   local src="$1"
   local dest="$2"
   mkdir -p "$(dirname "$dest")"
   rm -rf "$dest"
   cp -R "$src" "$dest"
   echo "installed: $dest"
+}
+
+install_ima_skill_tree() {
+  install_skill_tree "$1" "$2"
 }
 
 install_ima_skills() {
