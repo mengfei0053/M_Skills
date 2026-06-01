@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import getpass
+import json
 import os
 import platform
 import re
@@ -24,6 +25,8 @@ GITHUB_CLI_INSTALL_LINUX_URL = (
     "https://github.com/cli/cli/blob/trunk/docs/install_linux.md"
 )
 GITHUB_CLI_SKILL_MANUAL_URL = "https://cli.github.com/manual/gh_skill"
+M_SKILLS_RAW_BASE_URL = "https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main"
+M_SKILLS_USER_CONTENTS_API_URL = "https://api.github.com/repos/mengfei0053/M_Skills/contents/skills/user?ref=main"
 PLAYWRIGHT_CLI_REPO_URL = "https://github.com/microsoft/playwright-cli"
 IMA_AGENT_INTERFACE_URL = "https://ima.qq.com/agent-interface"
 JS_BUNDLE_RE = re.compile(
@@ -123,24 +126,34 @@ def candidate_repo_dirs() -> list[Path]:
     return unique
 
 
-def repo_dir() -> Path:
+def find_repo_dir(*, strict_env: bool = True) -> Path | None:
     env_value = os.environ.get(REPO_DIR_ENV_VAR, "").strip()
     if env_value:
         configured = Path(env_value).expanduser()
         if has_user_skills_dir(configured):
             return configured.resolve()
-        raise FileNotFoundError(
-            f"{REPO_DIR_ENV_VAR} does not contain skills/user: {configured}"
-        )
+        if strict_env:
+            raise FileNotFoundError(
+                f"{REPO_DIR_ENV_VAR} does not contain skills/user: {configured}"
+            )
+        return None
 
     for candidate in candidate_repo_dirs():
         if has_user_skills_dir(candidate):
             return candidate
+    return None
+
+
+def repo_dir() -> Path:
+    found = find_repo_dir()
+    if found is not None:
+        return found
 
     checked = ", ".join(format_path(path) for path in candidate_repo_dirs())
     raise FileNotFoundError(
         "User skills directory not found. Run this script from the M_Skills repository, "
-        f"or set {REPO_DIR_ENV_VAR}=/path/to/M_Skills. Checked: {checked}"
+        f"set {REPO_DIR_ENV_VAR}=/path/to/M_Skills, or run the official curl install path. "
+        f"Checked: {checked}"
     )
 
 
@@ -342,6 +355,12 @@ def install_skill_file(src: Path, dest: Path) -> None:
     print(f"installed: {dest}")
 
 
+def install_skill_content(content: str, dest: Path) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(content, encoding="utf-8")
+    print(f"installed: {dest}")
+
+
 def install_skill_tree(src: Path, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     if dest.exists():
@@ -350,11 +369,11 @@ def install_skill_tree(src: Path, dest: Path) -> None:
     print(f"installed: {dest}")
 
 
-def install_repo_user_skills(report: InstallReport, targets: set[str]) -> None:
-    skills_root = user_skills_dir()
-    if not skills_root.is_dir():
-        raise FileNotFoundError(f"User skills directory not found: {skills_root}")
-
+def install_repo_user_skills_from_local(
+    report: InstallReport,
+    targets: set[str],
+    skills_root: Path,
+) -> None:
     options = selected_target_options(targets)
     for skill_dir in sorted(skills_root.iterdir()):
         if not skill_dir.is_dir():
@@ -373,6 +392,53 @@ def install_repo_user_skills(report: InstallReport, targets: set[str]) -> None:
                 dest = option.root() / skill_name
                 install_skill_tree(skill_dir, dest)
                 record_install(report, option.label, skill_name, dest)
+
+
+def fetch_remote_user_skill_names() -> list[str]:
+    payload = json.loads(http_get_text(M_SKILLS_USER_CONTENTS_API_URL))
+    if not isinstance(payload, list):
+        raise RuntimeError("Unexpected GitHub contents API response for skills/user")
+    skill_names = sorted(
+        item["name"]
+        for item in payload
+        if isinstance(item, dict)
+        and item.get("type") == "dir"
+        and isinstance(item.get("name"), str)
+    )
+    if not skill_names:
+        raise RuntimeError("No remote user skills found in M_Skills")
+    return skill_names
+
+
+def fetch_remote_user_skill(skill_name: str) -> str:
+    return http_get_text(
+        f"{M_SKILLS_RAW_BASE_URL}/skills/user/{skill_name}/SKILL.md"
+    )
+
+
+def install_repo_user_skills_from_remote(report: InstallReport, targets: set[str]) -> None:
+    print(
+        "Local skills/user directory not found; installing user skills from GitHub raw content."
+    )
+    options = selected_target_options(targets)
+    for skill_name in fetch_remote_user_skill_names():
+        try:
+            content = fetch_remote_user_skill(skill_name)
+        except URLError as exc:
+            raise RuntimeError(f"Failed to fetch remote skill {skill_name}: {exc}") from exc
+        report.repo_skills.append(skill_name)
+        for option in options:
+            dest = option.root() / skill_name / "SKILL.md"
+            install_skill_content(content, dest)
+            record_install(report, option.label, skill_name, dest)
+
+
+def install_repo_user_skills(report: InstallReport, targets: set[str]) -> None:
+    root = find_repo_dir(strict_env=True)
+    if root is None:
+        install_repo_user_skills_from_remote(report, targets)
+    else:
+        install_repo_user_skills_from_local(report, targets, root / "skills" / "user")
 
     print("User-level skills installation completed.")
 
@@ -502,6 +568,12 @@ def install_github_cli(report: InstallReport, system: str) -> bool:
 
 
 def install_repo_user_skills_with_gh(report: InstallReport, targets: set[str]) -> bool:
+    local_repo = find_repo_dir(strict_env=False)
+    if local_repo is None:
+        report.tools["gh skill"] = "skipped (no local repo)"
+        print("Skipping gh skill install because no local M_Skills repository was found.")
+        return True
+
     gh_path = which("gh")
     if gh_path is None:
         report.tools["gh skill"] = "gh not found"
@@ -528,7 +600,7 @@ def install_repo_user_skills_with_gh(report: InstallReport, targets: set[str]) -
                         gh_path,
                         "skill",
                         "install",
-                        str(repo_dir()),
+                        str(local_repo),
                         skill_path,
                         "--from-local",
                         "--dir",

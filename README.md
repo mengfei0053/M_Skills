@@ -26,7 +26,13 @@ cd M_Skills
 python scripts/install-user-skills.py
 ```
 
-Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`。脚本会自动查找包含 `skills/user/` 的仓库根目录；如果脚本被复制或软链到其他位置，可设置 `M_SKILLS_REPO_DIR=/path/to/M_Skills`。
+也可以不克隆仓库，直接拉取 main 分支脚本运行：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main/scripts/install-user-skills.py | python3
+```
+
+Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`。脚本会自动查找包含 `skills/user/` 的仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/user/` 内容安装；也可设置 `M_SKILLS_REPO_DIR=/path/to/M_Skills` 显式指定本地仓库。
 
 脚本末尾还会：
 

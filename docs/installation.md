@@ -51,7 +51,8 @@ M_Skills/
 
 | 目标 | 命令 |
 |---|---|
-| 安装用户级 Skills | `python scripts/install-user-skills.py` |
+| 安装用户级 Skills（本地仓库） | `python scripts/install-user-skills.py` |
+| 安装用户级 Skills（远程单文件） | `curl -fsSL https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main/scripts/install-user-skills.py \| python3` |
 | 安装 HarmonyOS Skills 到当前项目 | `bash scripts/install-project-harmonyos-skills.sh /path/to/project` |
 
 `install-user-skills.py` 在完成 `skills/user/` 直接文件同步后，还会：
@@ -62,13 +63,14 @@ M_Skills/
 4. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 页面解析最新 `ima-skills` 压缩包地址并下载安装到用户级 skills 目录（含 `ima-skill` 完整目录树）。
 5. 交互提示输入 IMA **Client ID** 与 **API Key**，写入 `~/.config/ima/client_id` 与 `~/.config/ima/api_key`（已存在则跳过）。
 
-脚本开始时会交互选择安装目标（Agent / Claude / OpenCode / OpenClaw / Cursor Skill）。脚本会从脚本所在目录、当前工作目录及其父目录自动查找包含 `skills/user/` 的 M_Skills 仓库根目录；如果脚本被复制或软链到其他位置，可用 `M_SKILLS_REPO_DIR` 显式指定仓库根目录。
+脚本开始时会交互选择安装目标（Agent / Claude / OpenCode / OpenClaw / Cursor Skill）。脚本会从脚本所在目录、当前工作目录及其父目录自动查找包含 `skills/user/` 的 M_Skills 仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/user/` 内容安装。可用 `M_SKILLS_REPO_DIR` 显式指定本地仓库根目录。
 
 非交互环境可通过环境变量预设，例如：
 
 ```bash
 M_SKILLS_INSTALL_TARGETS=agent,claude,cursor_skill python scripts/install-user-skills.py
 M_SKILLS_REPO_DIR=/path/to/M_Skills M_SKILLS_INSTALL_TARGETS=agent python /path/to/install-user-skills.py
+curl -fsSL https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main/scripts/install-user-skills.py | M_SKILLS_INSTALL_TARGETS=agent python3
 ```
 
 ## 验证安装
