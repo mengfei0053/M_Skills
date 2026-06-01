@@ -59,7 +59,7 @@ M_Skills/
 
 1. 按 [GitHub CLI 官方 Linux 安装说明](https://github.com/cli/cli/blob/trunk/docs/install_linux.md) 安装或检查 `gh`（Debian/Ubuntu `apt`、RPM `dnf`/`yum`、openSUSE `zypper`；非 Linux 平台提示手动安装）。
 2. 参考 [`gh skill`](https://cli.github.com/manual/gh_skill) 与 [`gh skill install`](https://cli.github.com/manual/gh_skill_install) 预览能力，用 `gh skill install <repo> skills/user/<skill>/SKILL.md --from-local --dir <target> --force` 将本仓库用户级 skills 安装到所选目标目录；若 `gh skill` 不可用，保留前一步直接文件同步结果并提示。
-3. 全局安装 [@playwright/cli](https://github.com/microsoft/playwright-cli)，将 `playwright-cli` skill 复制到用户级 skills 目录，并执行 `playwright-cli install` 引导浏览器依赖。
+3. 全局安装 [@playwright/cli](https://github.com/microsoft/playwright-cli)，将 `playwright-cli` skill 复制到用户级 skills 目录，并执行 `playwright-cli install` 引导浏览器依赖；若新版 Linux 暂无 Playwright browser/ffmpeg 包支持，脚本会用 `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-<arch>` 重试，重试仍失败时只记录浏览器依赖失败/跳过，不会把 CLI 与 skill 安装标为失败。
 4. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 页面解析最新 `ima-skills` 压缩包地址并下载安装到用户级 skills 目录（含 `ima-skill` 完整目录树）。
 5. 交互提示输入 IMA **Client ID** 与 **API Key**，写入 `~/.config/ima/client_id` 与 `~/.config/ima/api_key`（已存在则跳过）。
 

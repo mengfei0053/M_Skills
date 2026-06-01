@@ -309,12 +309,14 @@ def run_command(
     *,
     cwd: Path | None = None,
     check: bool = True,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         args,
         cwd=str(cwd) if cwd else None,
         check=check,
         text=True,
+        env=env,
     )
 
 
@@ -342,6 +344,17 @@ def sudo_prefix() -> str | None:
         return ""
     if which("sudo") is not None:
         return "sudo "
+    return None
+
+
+def playwright_linux_host_platform_fallback() -> str | None:
+    if platform.system() != "Linux":
+        return None
+    machine = platform.machine().lower()
+    if machine in {"x86_64", "amd64"}:
+        return "ubuntu24.04-x64"
+    if machine in {"aarch64", "arm64"}:
+        return "ubuntu24.04-arm64"
     return None
 
 
@@ -683,13 +696,35 @@ def install_playwright_cli_and_skills(report: InstallReport, targets: set[str]) 
     print("Bootstrapping Playwright browser dependencies (playwright-cli install) ...")
     try:
         run_command([playwright_cli, "install"], cwd=home())
+        report.tools["playwright browsers"] = "installed"
     except subprocess.CalledProcessError:
-        print(
-            "Warning: playwright-cli install failed; CLI is installed but browsers may be missing.",
-            file=sys.stderr,
-        )
-        report.tree_skills["playwright-cli"] = False
-        return False
+        fallback = playwright_linux_host_platform_fallback()
+        if fallback is not None:
+            print(
+                "playwright-cli install failed; retrying with "
+                f"PLAYWRIGHT_HOST_PLATFORM_OVERRIDE={fallback} ...",
+                file=sys.stderr,
+            )
+            try:
+                fallback_env = os.environ.copy()
+                fallback_env["PLAYWRIGHT_HOST_PLATFORM_OVERRIDE"] = fallback
+                run_command([playwright_cli, "install"], cwd=home(), env=fallback_env)
+                report.tools["playwright browsers"] = f"installed via {fallback} fallback"
+            except subprocess.CalledProcessError:
+                print(
+                    "Warning: playwright-cli install fallback failed; CLI and skill are "
+                    "installed, but browser dependencies may be missing.",
+                    file=sys.stderr,
+                )
+                report.tools["playwright browsers"] = "failed/skipped"
+        else:
+            print(
+                "Warning: playwright-cli install failed; CLI and skill are installed, "
+                "but browser dependencies may be missing. This can happen on newer "
+                "Linux releases before Playwright publishes matching browser/ffmpeg packages.",
+                file=sys.stderr,
+            )
+            report.tools["playwright browsers"] = "failed/skipped"
 
     report.tree_skills["playwright-cli"] = True
     print("playwright-cli installation completed.")
@@ -812,9 +847,17 @@ def print_install_summary(report: InstallReport) -> None:
         "node": "Node.js",
         "npm": "npm",
         "playwright-cli": "playwright-cli",
+        "playwright browsers": "Playwright browser deps",
     }
     tool_rows = []
-    for key in ("gh", "gh skill", "node", "npm", "playwright-cli"):
+    for key in (
+        "gh",
+        "gh skill",
+        "node",
+        "npm",
+        "playwright-cli",
+        "playwright browsers",
+    ):
         value = (
             report.tools.get(key)
             or (which(key) if " " not in key else None)
