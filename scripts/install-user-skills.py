@@ -38,6 +38,8 @@ IMA_SKILLS_ZIP_RE = re.compile(
 USER_AGENT = "M_Skills-install-user-skills/1.0"
 TARGET_ENV_VAR = "M_SKILLS_INSTALL_TARGETS"
 REPO_DIR_ENV_VAR = "M_SKILLS_REPO_DIR"
+SKIP_PLAYWRIGHT_BROWSERS_ENV_VAR = "M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS"
+PLAYWRIGHT_INSTALL_TIMEOUT_SECONDS = 300
 
 
 @dataclass(frozen=True)
@@ -310,6 +312,7 @@ def run_command(
     cwd: Path | None = None,
     check: bool = True,
     env: dict[str, str] | None = None,
+    timeout: int | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         args,
@@ -317,6 +320,7 @@ def run_command(
         check=check,
         text=True,
         env=env,
+        timeout=timeout,
     )
 
 
@@ -347,6 +351,10 @@ def sudo_prefix() -> str | None:
     return None
 
 
+def env_flag_enabled(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def playwright_linux_host_platform_fallback() -> str | None:
     if platform.system() != "Linux":
         return None
@@ -356,6 +364,15 @@ def playwright_linux_host_platform_fallback() -> str | None:
     if machine in {"aarch64", "arm64"}:
         return "ubuntu24.04-arm64"
     return None
+
+
+def playwright_install_env() -> tuple[dict[str, str] | None, str | None]:
+    fallback = playwright_linux_host_platform_fallback()
+    if fallback is None:
+        return None, None
+    install_env = os.environ.copy()
+    install_env.setdefault("PLAYWRIGHT_HOST_PLATFORM_OVERRIDE", fallback)
+    return install_env, install_env["PLAYWRIGHT_HOST_PLATFORM_OVERRIDE"]
 
 
 def record_install(report: InstallReport, label: str, skill: str, dest: Path) -> None:
@@ -693,38 +710,51 @@ def install_playwright_cli_and_skills(report: InstallReport, targets: set[str]) 
     print("Installing playwright-cli skill to selected directories ...")
     install_tree_skill(report, targets, "playwright-cli", skill_src)
 
-    print("Bootstrapping Playwright browser dependencies (playwright-cli install) ...")
+    if env_flag_enabled(SKIP_PLAYWRIGHT_BROWSERS_ENV_VAR):
+        print(
+            f"Skipping Playwright browser dependencies because {SKIP_PLAYWRIGHT_BROWSERS_ENV_VAR}=1."
+        )
+        report.tools["playwright browsers"] = "skipped by env"
+        report.tree_skills["playwright-cli"] = True
+        print("playwright-cli installation completed.")
+        return True
+
+    install_env, fallback = playwright_install_env()
+    if fallback is None:
+        print("Bootstrapping Playwright browser dependencies (playwright-cli install) ...")
+    else:
+        print(
+            "Bootstrapping Playwright browser dependencies "
+            f"(PLAYWRIGHT_HOST_PLATFORM_OVERRIDE={fallback} playwright-cli install) ..."
+        )
+
     try:
-        run_command([playwright_cli, "install"], cwd=home())
-        report.tools["playwright browsers"] = "installed"
+        run_command(
+            [playwright_cli, "install"],
+            cwd=home(),
+            env=install_env,
+            timeout=PLAYWRIGHT_INSTALL_TIMEOUT_SECONDS,
+        )
+        report.tools["playwright browsers"] = (
+            f"installed via {fallback} fallback" if fallback else "installed"
+        )
+    except subprocess.TimeoutExpired:
+        print(
+            "Warning: playwright-cli install timed out after "
+            f"{PLAYWRIGHT_INSTALL_TIMEOUT_SECONDS}s; CLI and skill are installed, "
+            "but browser dependencies may be missing. Re-run manually or set "
+            f"{SKIP_PLAYWRIGHT_BROWSERS_ENV_VAR}=1 to skip this step.",
+            file=sys.stderr,
+        )
+        report.tools["playwright browsers"] = "timed out/skipped"
     except subprocess.CalledProcessError:
-        fallback = playwright_linux_host_platform_fallback()
-        if fallback is not None:
-            print(
-                "playwright-cli install failed; retrying with "
-                f"PLAYWRIGHT_HOST_PLATFORM_OVERRIDE={fallback} ...",
-                file=sys.stderr,
-            )
-            try:
-                fallback_env = os.environ.copy()
-                fallback_env["PLAYWRIGHT_HOST_PLATFORM_OVERRIDE"] = fallback
-                run_command([playwright_cli, "install"], cwd=home(), env=fallback_env)
-                report.tools["playwright browsers"] = f"installed via {fallback} fallback"
-            except subprocess.CalledProcessError:
-                print(
-                    "Warning: playwright-cli install fallback failed; CLI and skill are "
-                    "installed, but browser dependencies may be missing.",
-                    file=sys.stderr,
-                )
-                report.tools["playwright browsers"] = "failed/skipped"
-        else:
-            print(
-                "Warning: playwright-cli install failed; CLI and skill are installed, "
-                "but browser dependencies may be missing. This can happen on newer "
-                "Linux releases before Playwright publishes matching browser/ffmpeg packages.",
-                file=sys.stderr,
-            )
-            report.tools["playwright browsers"] = "failed/skipped"
+        print(
+            "Warning: playwright-cli install failed; CLI and skill are installed, "
+            "but browser dependencies may be missing. Re-run manually or set "
+            f"{SKIP_PLAYWRIGHT_BROWSERS_ENV_VAR}=1 to skip this step.",
+            file=sys.stderr,
+        )
+        report.tools["playwright browsers"] = "failed/skipped"
 
     report.tree_skills["playwright-cli"] = True
     print("playwright-cli installation completed.")
