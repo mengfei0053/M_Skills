@@ -62,10 +62,13 @@ M_Skills/
 4. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 页面解析最新 `ima-skills` 压缩包地址并下载安装到用户级 skills 目录（含 `ima-skill` 完整目录树）。
 5. 交互提示输入 IMA **Client ID** 与 **API Key**，写入 `~/.config/ima/client_id` 与 `~/.config/ima/api_key`（已存在则跳过）。
 
-脚本开始时会交互选择安装目标（Agent / Claude / OpenCode / OpenClaw / Cursor Skill）。非交互环境可通过环境变量预设，例如：
+脚本开始时会交互选择安装目标（Agent / Claude / OpenCode / OpenClaw / Cursor Skill）。脚本会从脚本所在目录、当前工作目录及其父目录自动查找包含 `skills/user/` 的 M_Skills 仓库根目录；如果脚本被复制或软链到其他位置，可用 `M_SKILLS_REPO_DIR` 显式指定仓库根目录。
+
+非交互环境可通过环境变量预设，例如：
 
 ```bash
 M_SKILLS_INSTALL_TARGETS=agent,claude,cursor_skill python scripts/install-user-skills.py
+M_SKILLS_REPO_DIR=/path/to/M_Skills M_SKILLS_INSTALL_TARGETS=agent python /path/to/install-user-skills.py
 ```
 
 ## 验证安装

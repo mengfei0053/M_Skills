@@ -26,7 +26,7 @@ cd M_Skills
 python scripts/install-user-skills.py
 ```
 
-Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`。
+Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`。脚本会自动查找包含 `skills/user/` 的仓库根目录；如果脚本被复制或软链到其他位置，可设置 `M_SKILLS_REPO_DIR=/path/to/M_Skills`。
 
 脚本末尾还会：
 

@@ -20,7 +20,9 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 SUPPORTED_SYSTEMS = frozenset({"Windows", "Linux", "Darwin"})
-GITHUB_CLI_INSTALL_LINUX_URL = "https://github.com/cli/cli/blob/trunk/docs/install_linux.md"
+GITHUB_CLI_INSTALL_LINUX_URL = (
+    "https://github.com/cli/cli/blob/trunk/docs/install_linux.md"
+)
 GITHUB_CLI_SKILL_MANUAL_URL = "https://cli.github.com/manual/gh_skill"
 PLAYWRIGHT_CLI_REPO_URL = "https://github.com/microsoft/playwright-cli"
 IMA_AGENT_INTERFACE_URL = "https://ima.qq.com/agent-interface"
@@ -32,6 +34,7 @@ IMA_SKILLS_ZIP_RE = re.compile(
 )
 USER_AGENT = "M_Skills-install-user-skills/1.0"
 TARGET_ENV_VAR = "M_SKILLS_INSTALL_TARGETS"
+REPO_DIR_ENV_VAR = "M_SKILLS_REPO_DIR"
 
 
 @dataclass(frozen=True)
@@ -77,9 +80,13 @@ def target_options() -> list[TargetOption]:
     return [
         TargetOption("agent", "Agent", agents_root, repo_skill=True, tree_skill=True),
         TargetOption("claude", "Claude", claude_root, repo_skill=True, tree_skill=True),
-        TargetOption("opencode", "OpenCode", opencode_root, repo_skill=True, tree_skill=True),
+        TargetOption(
+            "opencode", "OpenCode", opencode_root, repo_skill=True, tree_skill=True
+        ),
         TargetOption("openclaw", "OpenClaw", openclaw_root, tree_skill=True),
-        TargetOption("cursor_skill", "Cursor Skill", cursor_skills_root, tree_skill=True),
+        TargetOption(
+            "cursor_skill", "Cursor Skill", cursor_skills_root, tree_skill=True
+        ),
     ]
 
 
@@ -91,8 +98,50 @@ def home() -> Path:
     return Path.home()
 
 
+def has_user_skills_dir(path: Path) -> bool:
+    return (path / "skills" / "user").is_dir()
+
+
+def candidate_repo_dirs() -> list[Path]:
+    script_path = Path(__file__).resolve()
+    candidates = [
+        script_path.parent,
+        script_path.parent.parent,
+        Path.cwd(),
+        *Path.cwd().parents,
+    ]
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for candidate in candidates:
+        try:
+            resolved = candidate.expanduser().resolve()
+        except OSError:
+            resolved = candidate.expanduser()
+        if resolved not in seen:
+            seen.add(resolved)
+            unique.append(resolved)
+    return unique
+
+
 def repo_dir() -> Path:
-    return Path(__file__).resolve().parent.parent
+    env_value = os.environ.get(REPO_DIR_ENV_VAR, "").strip()
+    if env_value:
+        configured = Path(env_value).expanduser()
+        if has_user_skills_dir(configured):
+            return configured.resolve()
+        raise FileNotFoundError(
+            f"{REPO_DIR_ENV_VAR} does not contain skills/user: {configured}"
+        )
+
+    for candidate in candidate_repo_dirs():
+        if has_user_skills_dir(candidate):
+            return candidate
+
+    checked = ", ".join(format_path(path) for path in candidate_repo_dirs())
+    raise FileNotFoundError(
+        "User skills directory not found. Run this script from the M_Skills repository, "
+        f"or set {REPO_DIR_ENV_VAR}=/path/to/M_Skills. Checked: {checked}"
+    )
 
 
 def user_skills_dir() -> Path:
@@ -256,18 +305,23 @@ def run_command(
     )
 
 
-def run_shell_command(command: str, *, check: bool = True) -> subprocess.CompletedProcess[str]:
+def run_shell_command(
+    command: str, *, check: bool = True
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(command, shell=True, check=check, text=True)
 
 
 def command_succeeds(args: list[str]) -> bool:
-    return subprocess.run(
-        args,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        text=True,
-        check=False,
-    ).returncode == 0
+    return (
+        subprocess.run(
+            args,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            check=False,
+        ).returncode
+        == 0
+    )
 
 
 def sudo_prefix() -> str | None:
@@ -355,12 +409,16 @@ def install_github_cli(report: InstallReport, system: str) -> bool:
 
     sudo = sudo_prefix()
     if sudo is None:
-        print("GitHub CLI installation requires root privileges or sudo.", file=sys.stderr)
+        print(
+            "GitHub CLI installation requires root privileges or sudo.", file=sys.stderr
+        )
         report.tools["gh"] = "not found"
         return False
 
     print("")
-    print(f"Installing GitHub CLI (gh) using official Linux package guidance ({GITHUB_CLI_INSTALL_LINUX_URL}) ...")
+    print(
+        f"Installing GitHub CLI (gh) using official Linux package guidance ({GITHUB_CLI_INSTALL_LINUX_URL}) ..."
+    )
     try:
         if which("apt") is not None and which("dpkg") is not None:
             run_shell_command(
@@ -370,25 +428,62 @@ def install_github_cli(report: InstallReport, system: str) -> bool:
                 f"&& cat $out | {sudo}tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null "
                 f"&& {sudo}chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg "
                 f"&& {sudo}mkdir -p -m 755 /etc/apt/sources.list.d "
-                "&& echo \"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\" "
+                '&& echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" '
                 f"| {sudo}tee /etc/apt/sources.list.d/github-cli.list > /dev/null "
                 f"&& {sudo}apt update "
                 f"&& {sudo}apt install gh -y"
             )
         elif which("dnf") is not None:
-            run_command([*(sudo.split() if sudo else []), "dnf", "install", "dnf-command(config-manager)", "-y"])
-            run_command([*(sudo.split() if sudo else []), "dnf", "config-manager", "--add-repo", "https://cli.github.com/packages/rpm/gh-cli.repo"])
+            run_command(
+                [
+                    *(sudo.split() if sudo else []),
+                    "dnf",
+                    "install",
+                    "dnf-command(config-manager)",
+                    "-y",
+                ]
+            )
+            run_command(
+                [
+                    *(sudo.split() if sudo else []),
+                    "dnf",
+                    "config-manager",
+                    "--add-repo",
+                    "https://cli.github.com/packages/rpm/gh-cli.repo",
+                ]
+            )
             run_command([*(sudo.split() if sudo else []), "dnf", "install", "gh", "-y"])
         elif which("yum") is not None:
-            run_command([*(sudo.split() if sudo else []), "yum", "install", "yum-utils", "-y"])
-            run_command([*(sudo.split() if sudo else []), "yum-config-manager", "--add-repo", "https://cli.github.com/packages/rpm/gh-cli.repo"])
+            run_command(
+                [*(sudo.split() if sudo else []), "yum", "install", "yum-utils", "-y"]
+            )
+            run_command(
+                [
+                    *(sudo.split() if sudo else []),
+                    "yum-config-manager",
+                    "--add-repo",
+                    "https://cli.github.com/packages/rpm/gh-cli.repo",
+                ]
+            )
             run_command([*(sudo.split() if sudo else []), "yum", "install", "gh", "-y"])
         elif which("zypper") is not None:
-            run_command([*(sudo.split() if sudo else []), "zypper", "addrepo", "https://cli.github.com/packages/rpm/gh-cli.repo"])
+            run_command(
+                [
+                    *(sudo.split() if sudo else []),
+                    "zypper",
+                    "addrepo",
+                    "https://cli.github.com/packages/rpm/gh-cli.repo",
+                ]
+            )
             run_command([*(sudo.split() if sudo else []), "zypper", "ref"])
-            run_command([*(sudo.split() if sudo else []), "zypper", "install", "-y", "gh"])
+            run_command(
+                [*(sudo.split() if sudo else []), "zypper", "install", "-y", "gh"]
+            )
         else:
-            print("No supported Linux package manager found for automatic gh installation.", file=sys.stderr)
+            print(
+                "No supported Linux package manager found for automatic gh installation.",
+                file=sys.stderr,
+            )
             report.tools["gh"] = "not found"
             return False
     except subprocess.CalledProcessError:
@@ -420,7 +515,9 @@ def install_repo_user_skills_with_gh(report: InstallReport, targets: set[str]) -
         return False
 
     print("")
-    print(f"Installing local user skills through 'gh skill install' ({GITHUB_CLI_SKILL_MANUAL_URL}) ...")
+    print(
+        f"Installing local user skills through 'gh skill install' ({GITHUB_CLI_SKILL_MANUAL_URL}) ..."
+    )
     ok = True
     for skill_name in report.repo_skills:
         skill_path = f"skills/user/{skill_name}/SKILL.md"
@@ -441,7 +538,10 @@ def install_repo_user_skills_with_gh(report: InstallReport, targets: set[str]) -
                 )
                 print(f"gh skill installed: {option.label} / {skill_name}")
             except subprocess.CalledProcessError:
-                print(f"Failed to install {skill_name} with gh skill for {option.label}", file=sys.stderr)
+                print(
+                    f"Failed to install {skill_name} with gh skill for {option.label}",
+                    file=sys.stderr,
+                )
                 ok = False
     report.tools["gh skill"] = "available" if ok else "failed"
     return ok
@@ -450,9 +550,7 @@ def install_repo_user_skills_with_gh(report: InstallReport, targets: set[str]) -
 def fetch_ima_skills_download_url(page_url: str) -> str:
     html = http_get_text(page_url)
     js_matches = [
-        match
-        for match in JS_BUNDLE_RE.findall(html)
-        if "legacy" not in match
+        match for match in JS_BUNDLE_RE.findall(html) if "legacy" not in match
     ]
     if not js_matches:
         raise RuntimeError(f"Failed to locate agent-interface JS bundle on {page_url}")
@@ -490,8 +588,13 @@ def install_playwright_cli_and_skills(report: InstallReport, targets: set[str]) 
     playwright_cli = which("playwright-cli")
     report.tools["playwright-cli"] = playwright_cli or "not found"
     if playwright_cli is None:
-        print("playwright-cli not found in PATH after npm global install", file=sys.stderr)
-        print("Ensure the npm global bin directory is on PATH, then re-run.", file=sys.stderr)
+        print(
+            "playwright-cli not found in PATH after npm global install", file=sys.stderr
+        )
+        print(
+            "Ensure the npm global bin directory is on PATH, then re-run.",
+            file=sys.stderr,
+        )
         report.tree_skills["playwright-cli"] = False
         return False
 
@@ -553,7 +656,10 @@ def install_ima_skills(report: InstallReport, targets: set[str]) -> bool:
 
         skill_src = tmp_dir / "ima-skill"
         if not skill_src.is_dir():
-            print("Unexpected IMA skills zip layout: ima-skill/ not found", file=sys.stderr)
+            print(
+                "Unexpected IMA skills zip layout: ima-skill/ not found",
+                file=sys.stderr,
+            )
             report.tree_skills["ima-skill"] = False
             return False
 
@@ -592,7 +698,12 @@ def prompt_ima_api_credentials(report: InstallReport) -> bool:
     api_key_file = config_dir / "api_key"
     secure_dir(config_dir)
 
-    if client_id_file.is_file() and client_id_file.stat().st_size > 0 and api_key_file.is_file() and api_key_file.stat().st_size > 0:
+    if (
+        client_id_file.is_file()
+        and client_id_file.stat().st_size > 0
+        and api_key_file.is_file()
+        and api_key_file.stat().st_size > 0
+    ):
         print(
             f"IMA 凭证已存在 ({config_dir})，如需更新请删除 client_id / api_key 后重新运行。"
         )
@@ -609,7 +720,9 @@ def prompt_ima_api_credentials(report: InstallReport) -> bool:
         secure_write(client_id_file, prompt_non_empty("请输入 IMA Client ID: "))
 
     if not (api_key_file.is_file() and api_key_file.stat().st_size > 0):
-        secure_write(api_key_file, prompt_non_empty("请输入 IMA API Key: ", secret=True))
+        secure_write(
+            api_key_file, prompt_non_empty("请输入 IMA API Key: ", secret=True)
+        )
 
     print(f"IMA 凭证已保存到 {config_dir}。")
     report.ima_credentials_configured = True
@@ -630,7 +743,11 @@ def print_install_summary(report: InstallReport) -> None:
     }
     tool_rows = []
     for key in ("gh", "gh skill", "node", "npm", "playwright-cli"):
-        value = report.tools.get(key) or (which(key) if " " not in key else None) or "未安装"
+        value = (
+            report.tools.get(key)
+            or (which(key) if " " not in key else None)
+            or "未安装"
+        )
         tool_rows.append([tool_labels.get(key, key), value])
     render_table("工具", ["工具", "路径 / 状态"], tool_rows)
 
@@ -649,7 +766,9 @@ def print_install_summary(report: InstallReport) -> None:
     ]
     render_table("已选目标目录", ["目标", "路径"], target_rows)
 
-    install_rows = [[label, skill, path] for label, skill, path in report.installed_rows]
+    install_rows = [
+        [label, skill, path] for label, skill, path in report.installed_rows
+    ]
     render_table("Skill 安装明细", ["目标", "Skill", "路径"], install_rows)
 
     ima_dir = ima_config_dir()
@@ -673,7 +792,9 @@ def main() -> int:
     system = check_platform()
     targets = prompt_install_targets()
     report.selected_targets = sorted(targets)
-    print(f"\n将安装到: {', '.join(option.label for option in selected_target_options(targets))}")
+    print(
+        f"\n将安装到: {', '.join(option.label for option in selected_target_options(targets))}"
+    )
 
     install_repo_user_skills(report, targets)
 
