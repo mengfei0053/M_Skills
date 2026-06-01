@@ -30,8 +30,10 @@ Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`
 
 脚本末尾还会：
 
-1. 从 [playwright-cli](https://github.com/microsoft/playwright-cli) 全局安装 `@playwright/cli`，并将 `playwright-cli` skill 同步到用户级 skills 目录。
-2. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 安装官方 `ima-skill`，并提示配置 IMA Client ID / API Key（写入 `~/.config/ima/`）。
+1. 按 GitHub CLI 官方 Linux 安装说明安装/检查 [`gh`](https://github.com/cli/cli/blob/trunk/docs/install_linux.md)（非 Linux 平台提示手动安装）。
+2. 参考 [`gh skill`](https://cli.github.com/manual/gh_skill) 预览能力，用 `gh skill install --from-local --dir ... --force` 将本仓库用户级 skills 安装到所选目标目录（直接文件复制仍作为基础安装路径）。
+3. 从 [playwright-cli](https://github.com/microsoft/playwright-cli) 全局安装 `@playwright/cli`，并将 `playwright-cli` skill 同步到用户级 skills 目录。
+4. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 安装官方 `ima-skill`，并提示配置 IMA Client ID / API Key（写入 `~/.config/ima/`）。
 
 安装 HarmonyOS Skills 到指定项目：
 
@@ -138,6 +140,8 @@ find ~/.agents/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.claude/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.config/opencode/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.cursor/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
+command -v gh && gh --version
+command -v gh && gh skill --help | head -5
 ```
 
 检查项目级 HarmonyOS 安装结果：

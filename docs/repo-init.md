@@ -23,7 +23,7 @@ M_Skills 是个人常用 Skills 收集仓库，用于沉淀可复用的工作流
 | `README.md` | 仓库入口说明与 Skill 清单 | 新增/删除/重命名 Skill 时必须更新 |
 | `docs/installation.md` | 安装策略说明 | 安装范围、目标目录变化时更新 |
 | `docs/repo-init.md` | 深度初始化记录 | 后续结构或规则变化时更新 |
-| `scripts/install-user-skills.py` | 跨平台安装 `skills/user/` 到用户级工具配置；安装 [playwright-cli](https://github.com/microsoft/playwright-cli) 与 skill；从 [ima agent-interface](https://ima.qq.com/agent-interface) 安装 `ima-skill` 并提示 `~/.config/ima/` 凭证 | 修改后运行 `python3 -m py_compile scripts/install-user-skills.py` |
+| `scripts/install-user-skills.py` | 跨平台安装 `skills/user/` 到用户级工具配置；在 Linux 上按 GitHub CLI 官方说明安装/检查 `gh` 并尝试用 `gh skill install --from-local` 安装本地 skills；安装 [playwright-cli](https://github.com/microsoft/playwright-cli) 与 skill；从 [ima agent-interface](https://ima.qq.com/agent-interface) 安装 `ima-skill` 并提示 `~/.config/ima/` 凭证 | 修改后运行 `python3 -m py_compile scripts/install-user-skills.py` |
 | `scripts/install-project-harmonyos-skills.sh` | 安装 `skills/harmonyos/` 到目标项目 | 修改后运行 `bash -n scripts/*.sh` |
 | `skills/user/` | 用户级通用 Skills | 保持 README 与本文件 Skill 清单同步 |
 | `skills/harmonyos/` | HarmonyOS / OpenHarmony 项目级 Skills | 只安装到具体项目，不安装到全局用户级 |

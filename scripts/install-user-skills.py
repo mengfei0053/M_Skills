@@ -13,13 +13,15 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 SUPPORTED_SYSTEMS = frozenset({"Windows", "Linux", "Darwin"})
+GITHUB_CLI_INSTALL_LINUX_URL = "https://github.com/cli/cli/blob/trunk/docs/install_linux.md"
+GITHUB_CLI_SKILL_MANUAL_URL = "https://cli.github.com/manual/gh_skill"
 PLAYWRIGHT_CLI_REPO_URL = "https://github.com/microsoft/playwright-cli"
 IMA_AGENT_INTERFACE_URL = "https://ima.qq.com/agent-interface"
 JS_BUNDLE_RE = re.compile(
@@ -254,6 +256,28 @@ def run_command(
     )
 
 
+def run_shell_command(command: str, *, check: bool = True) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(command, shell=True, check=check, text=True)
+
+
+def command_succeeds(args: list[str]) -> bool:
+    return subprocess.run(
+        args,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        check=False,
+    ).returncode == 0
+
+
+def sudo_prefix() -> str | None:
+    if os.name != "nt" and hasattr(os, "geteuid") and os.geteuid() == 0:
+        return ""
+    if which("sudo") is not None:
+        return "sudo "
+    return None
+
+
 def record_install(report: InstallReport, label: str, skill: str, dest: Path) -> None:
     report.installed_rows.append((label, skill, format_path(dest)))
 
@@ -311,6 +335,116 @@ def install_tree_skill(
         dest = option.root() / skill_name
         install_skill_tree(skill_src, dest)
         record_install(report, option.label, skill_name, dest)
+
+
+def install_github_cli(report: InstallReport, system: str) -> bool:
+    gh_path = which("gh")
+    if gh_path is not None:
+        report.tools["gh"] = gh_path
+        print(f"GitHub CLI already installed: {gh_path}")
+        return True
+
+    if system != "Linux":
+        print(
+            "GitHub CLI (gh) is not installed; automatic installation is only enabled on Linux. "
+            f"See {GITHUB_CLI_INSTALL_LINUX_URL} for Linux and cli.github.com for other platforms.",
+            file=sys.stderr,
+        )
+        report.tools["gh"] = "not found"
+        return False
+
+    sudo = sudo_prefix()
+    if sudo is None:
+        print("GitHub CLI installation requires root privileges or sudo.", file=sys.stderr)
+        report.tools["gh"] = "not found"
+        return False
+
+    print("")
+    print(f"Installing GitHub CLI (gh) using official Linux package guidance ({GITHUB_CLI_INSTALL_LINUX_URL}) ...")
+    try:
+        if which("apt") is not None and which("dpkg") is not None:
+            run_shell_command(
+                f"(type -p wget >/dev/null || ({sudo}apt update && {sudo}apt install wget -y)) "
+                f"&& {sudo}mkdir -p -m 755 /etc/apt/keyrings "
+                "&& out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg "
+                f"&& cat $out | {sudo}tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null "
+                f"&& {sudo}chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg "
+                f"&& {sudo}mkdir -p -m 755 /etc/apt/sources.list.d "
+                "&& echo \"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\" "
+                f"| {sudo}tee /etc/apt/sources.list.d/github-cli.list > /dev/null "
+                f"&& {sudo}apt update "
+                f"&& {sudo}apt install gh -y"
+            )
+        elif which("dnf") is not None:
+            run_command([*(sudo.split() if sudo else []), "dnf", "install", "dnf-command(config-manager)", "-y"])
+            run_command([*(sudo.split() if sudo else []), "dnf", "config-manager", "--add-repo", "https://cli.github.com/packages/rpm/gh-cli.repo"])
+            run_command([*(sudo.split() if sudo else []), "dnf", "install", "gh", "-y"])
+        elif which("yum") is not None:
+            run_command([*(sudo.split() if sudo else []), "yum", "install", "yum-utils", "-y"])
+            run_command([*(sudo.split() if sudo else []), "yum-config-manager", "--add-repo", "https://cli.github.com/packages/rpm/gh-cli.repo"])
+            run_command([*(sudo.split() if sudo else []), "yum", "install", "gh", "-y"])
+        elif which("zypper") is not None:
+            run_command([*(sudo.split() if sudo else []), "zypper", "addrepo", "https://cli.github.com/packages/rpm/gh-cli.repo"])
+            run_command([*(sudo.split() if sudo else []), "zypper", "ref"])
+            run_command([*(sudo.split() if sudo else []), "zypper", "install", "-y", "gh"])
+        else:
+            print("No supported Linux package manager found for automatic gh installation.", file=sys.stderr)
+            report.tools["gh"] = "not found"
+            return False
+    except subprocess.CalledProcessError:
+        print("Failed to install GitHub CLI (gh)", file=sys.stderr)
+        report.tools["gh"] = "not found"
+        return False
+
+    gh_path = which("gh")
+    report.tools["gh"] = gh_path or "not found"
+    if gh_path is None:
+        print("gh not found in PATH after installation", file=sys.stderr)
+        return False
+
+    print(f"GitHub CLI installation completed: {gh_path}")
+    return True
+
+
+def install_repo_user_skills_with_gh(report: InstallReport, targets: set[str]) -> bool:
+    gh_path = which("gh")
+    if gh_path is None:
+        report.tools["gh skill"] = "gh not found"
+        return False
+    if not command_succeeds([gh_path, "skill", "--help"]):
+        report.tools["gh skill"] = "not available"
+        print(
+            f"GitHub CLI is installed, but 'gh skill' is unavailable. See {GITHUB_CLI_SKILL_MANUAL_URL}.",
+            file=sys.stderr,
+        )
+        return False
+
+    print("")
+    print(f"Installing local user skills through 'gh skill install' ({GITHUB_CLI_SKILL_MANUAL_URL}) ...")
+    ok = True
+    for skill_name in report.repo_skills:
+        skill_path = f"skills/user/{skill_name}/SKILL.md"
+        for option in selected_target_options(targets):
+            try:
+                run_command(
+                    [
+                        gh_path,
+                        "skill",
+                        "install",
+                        str(repo_dir()),
+                        skill_path,
+                        "--from-local",
+                        "--dir",
+                        str(option.root()),
+                        "--force",
+                    ]
+                )
+                print(f"gh skill installed: {option.label} / {skill_name}")
+            except subprocess.CalledProcessError:
+                print(f"Failed to install {skill_name} with gh skill for {option.label}", file=sys.stderr)
+                ok = False
+    report.tools["gh skill"] = "available" if ok else "failed"
+    return ok
 
 
 def fetch_ima_skills_download_url(page_url: str) -> str:
@@ -488,13 +622,15 @@ def print_install_summary(report: InstallReport) -> None:
     print("=" * 72)
 
     tool_labels = {
+        "gh": "GitHub CLI (gh)",
+        "gh skill": "gh skill",
         "node": "Node.js",
         "npm": "npm",
         "playwright-cli": "playwright-cli",
     }
     tool_rows = []
-    for key in ("node", "npm", "playwright-cli"):
-        value = report.tools.get(key) or which(key) or "未安装"
+    for key in ("gh", "gh skill", "node", "npm", "playwright-cli"):
+        value = report.tools.get(key) or (which(key) if " " not in key else None) or "未安装"
         tool_rows.append([tool_labels.get(key, key), value])
     render_table("工具", ["工具", "路径 / 状态"], tool_rows)
 
@@ -534,12 +670,24 @@ def print_install_summary(report: InstallReport) -> None:
 
 def main() -> int:
     report = InstallReport()
-    check_platform()
+    system = check_platform()
     targets = prompt_install_targets()
     report.selected_targets = sorted(targets)
     print(f"\n将安装到: {', '.join(option.label for option in selected_target_options(targets))}")
 
     install_repo_user_skills(report, targets)
+
+    if install_github_cli(report, system):
+        if not install_repo_user_skills_with_gh(report, targets):
+            print(
+                "gh skill installation failed; direct file-copy installation has already completed.",
+                file=sys.stderr,
+            )
+    else:
+        print(
+            "GitHub CLI installation failed or was skipped; direct file-copy installation has already completed.",
+            file=sys.stderr,
+        )
 
     if not install_playwright_cli_and_skills(report, targets):
         print(
