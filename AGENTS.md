@@ -352,6 +352,6 @@ Execute `omx setup` to install all components. Execute `omx doctor` to verify in
 - 本仓库是个人 Skills 集合：`skills/user/` 放跨项目通用技能，`skills/harmonyos/` 放 HarmonyOS / OpenHarmony 项目级技能。
 - 后续任何新增、删除、重命名 Skill 或脚本时，必须同步更新 `README.md`、`docs/repo-init.md`，并按影响范围更新 `docs/installation.md` / `docs/install-commands.md` / `.agents/AGENTS.md`。
 - Skill 文件统一使用 `SKILL.md`，保留 YAML frontmatter：`name`、`description`、`version`、`author`、`license`、`metadata.hermes.tags`、`metadata.hermes.related_skills`。
-- 脚本必须保持 Bash 可验证：修改后至少运行 `bash -n scripts/*.sh`；安装路径或参数变化时同步更新安装文档。
+- 脚本验证：`install-user-skills.py` 修改后运行 `python3 -m py_compile scripts/install-user-skills.py`；Bash 脚本修改后运行 `bash -n scripts/*.sh`；安装路径或参数变化时同步更新安装文档。
 - 文档类修改完成前检查链接、目录结构、Skill 清单是否仍与文件系统一致。
 <!-- OMX:AGENTS-INIT:MANUAL:END -->

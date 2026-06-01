@@ -23,8 +23,10 @@ cd M_Skills
 安装用户级通用 Skills：
 
 ```bash
-bash scripts/install-user-skills.sh
+python scripts/install-user-skills.py
 ```
+
+Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`。
 
 脚本末尾还会：
 
@@ -59,7 +61,7 @@ bash scripts/install-project-harmonyos-skills.sh /path/to/harmonyos-project
 | Agent 通用 | `~/.agents/skills/<skill>/SKILL.md` |
 | Claude | `~/.claude/skills/<skill>/SKILL.md` |
 | OpenCode | `~/.config/opencode/skills/<skill>/SKILL.md` |
-| Cursor | `~/.cursor/rules/m-skills-<skill>.mdc` |
+| Cursor | `~/.cursor/skills/<skill>/`（完整 skill 目录树） |
 
 HarmonyOS 项目级 Skills 会安装到目标项目内：
 
@@ -97,7 +99,7 @@ M_Skills/
 ## 使用方式
 
 - 浏览 `skills/`，按目录选择需要的 Skill。
-- 执行 `scripts/install-user-skills.sh` 同步用户级通用 Skills。
+- 执行 `python scripts/install-user-skills.py` 同步用户级通用 Skills。
 - 执行 `scripts/install-project-harmonyos-skills.sh` 把 HarmonyOS Skills 安装到指定项目。
 - 在 `templates/` 中维护可复用模板；新增模板后同步补充用途说明。
 
@@ -105,7 +107,7 @@ M_Skills/
 
 - 新增、删除、重命名 Skill 时，同步更新本 README 的 Skills 清单与 `docs/repo-init.md`。
 - 调整安装路径、脚本参数或安装策略时，同步更新 `docs/installation.md` 与 `docs/repo-init.md`。
-- 修改脚本后至少执行 `bash -n scripts/*.sh`。
+- 修改 Bash 脚本后至少执行 `bash -n scripts/*.sh`；修改 `install-user-skills.py` 后执行 `python3 -m py_compile scripts/install-user-skills.py`。
 
 ## 新增 Skill 规范
 
@@ -135,7 +137,7 @@ skills/<category>/<skill-name>/SKILL.md
 find ~/.agents/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.claude/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.config/opencode/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
-find ~/.cursor/rules -maxdepth 1 -name 'm-skills-*.mdc' 2>/dev/null | sort
+find ~/.cursor/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 ```
 
 检查项目级 HarmonyOS 安装结果：

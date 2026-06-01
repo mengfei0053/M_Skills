@@ -22,11 +22,9 @@
 | 依赖 | 说明 |
 |---|---|
 | Git | 用于克隆仓库和同步更新 |
-| Bash | 用于执行安装脚本 |
+| Python 3.8+ | 执行 `scripts/install-user-skills.py`（支持 Windows / Linux / macOS） |
 | Node.js 18+ | 安装 `@playwright/cli` |
 | `npm` | 全局安装 `@playwright/cli` |
-| `curl` | 拉取 IMA agent-interface 页面与 skills 压缩包 |
-| `unzip` | 解压 IMA skills 压缩包 |
 | Claude / OpenCode / Cursor | 按需安装，脚本会写入对应配置目录 |
 
 ## 克隆仓库
@@ -52,14 +50,20 @@ M_Skills/
 
 | 目标 | 命令 |
 |---|---|
-| 安装用户级 Skills | `bash scripts/install-user-skills.sh` |
+| 安装用户级 Skills | `python scripts/install-user-skills.py` |
 | 安装 HarmonyOS Skills 到当前项目 | `bash scripts/install-project-harmonyos-skills.sh /path/to/project` |
 
-`install-user-skills.sh` 在完成 `skills/user/` 同步后，还会：
+`install-user-skills.py` 在完成 `skills/user/` 同步后，还会：
 
 1. 全局安装 [@playwright/cli](https://github.com/microsoft/playwright-cli)，将 `playwright-cli` skill 复制到用户级 skills 目录，并执行 `playwright-cli install` 引导浏览器依赖。
 2. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 页面解析最新 `ima-skills` 压缩包地址并下载安装到用户级 skills 目录（含 `ima-skill` 完整目录树）。
 3. 交互提示输入 IMA **Client ID** 与 **API Key**，写入 `~/.config/ima/client_id` 与 `~/.config/ima/api_key`（已存在则跳过）。
+
+脚本开始时会交互选择安装目标（Agent / Claude / OpenCode / OpenClaw / Cursor Skill）。非交互环境可通过环境变量预设，例如：
+
+```bash
+M_SKILLS_INSTALL_TARGETS=agent,claude,cursor_skill python scripts/install-user-skills.py
+```
 
 ## 验证安装
 
@@ -69,7 +73,7 @@ M_Skills/
 find ~/.agents/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.claude/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.config/opencode/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
-find ~/.cursor/rules -maxdepth 1 -name 'm-skills-*.mdc' 2>/dev/null | sort
+find ~/.cursor/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.agents/skills/playwright-cli -maxdepth 2 -name 'SKILL.md' 2>/dev/null | sort
 command -v playwright-cli && playwright-cli --help | head -5
 find ~/.agents/skills/ima-skill -maxdepth 2 -name 'SKILL.md' 2>/dev/null | sort

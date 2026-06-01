@@ -23,7 +23,7 @@ M_Skills 是个人常用 Skills 收集仓库，用于沉淀可复用的工作流
 | `README.md` | 仓库入口说明与 Skill 清单 | 新增/删除/重命名 Skill 时必须更新 |
 | `docs/installation.md` | 安装策略说明 | 安装范围、目标目录变化时更新 |
 | `docs/repo-init.md` | 深度初始化记录 | 后续结构或规则变化时更新 |
-| `scripts/install-user-skills.sh` | 安装 `skills/user/` 到用户级工具配置；安装 [playwright-cli](https://github.com/microsoft/playwright-cli) 与 skill；从 [ima agent-interface](https://ima.qq.com/agent-interface) 安装 `ima-skill` 并提示 `~/.config/ima/` 凭证 | 修改后运行 `bash -n scripts/*.sh` |
+| `scripts/install-user-skills.py` | 跨平台安装 `skills/user/` 到用户级工具配置；安装 [playwright-cli](https://github.com/microsoft/playwright-cli) 与 skill；从 [ima agent-interface](https://ima.qq.com/agent-interface) 安装 `ima-skill` 并提示 `~/.config/ima/` 凭证 | 修改后运行 `python3 -m py_compile scripts/install-user-skills.py` |
 | `scripts/install-project-harmonyos-skills.sh` | 安装 `skills/harmonyos/` 到目标项目 | 修改后运行 `bash -n scripts/*.sh` |
 | `skills/user/` | 用户级通用 Skills | 保持 README 与本文件 Skill 清单同步 |
 | `skills/harmonyos/` | HarmonyOS / OpenHarmony 项目级 Skills | 只安装到具体项目，不安装到全局用户级 |
@@ -45,13 +45,13 @@ M_Skills 是个人常用 Skills 收集仓库，用于沉淀可复用的工作流
 
 | 来源 | 安装级别 | 目标 |
 |---|---|---|
-| `skills/user/` | 用户级 | `~/.agents/skills/`、`~/.claude/skills/`、`~/.config/opencode/skills/`、`~/.cursor/rules/` |
+| `skills/user/` | 用户级 | `~/.agents/skills/`、`~/.claude/skills/`、`~/.config/opencode/skills/`、`~/.cursor/skills/` |
 | `skills/harmonyos/` | 项目级 | 目标项目内 `.agents/skills/`、`.claude/skills/`、`.opencode/skills/`、`.cursor/rules/` |
 
 安装入口：
 
 ```bash
-bash scripts/install-user-skills.sh
+python scripts/install-user-skills.py
 bash scripts/install-project-harmonyos-skills.sh /path/to/harmonyos-project
 ```
 
@@ -83,4 +83,4 @@ find docs scripts skills -maxdepth 3 -type f | sort
 
 - 不要把 `.omx/` 运行态文件当作项目文档维护；它是本地会话状态。
 - `AGENTS.md` 为 OMX managed 文件，刷新时会保留 Local Notes；项目约定尽量写在 Local Notes 区块。
-- Cursor rule 由脚本包装 frontmatter 后生成，源文件仍以 `SKILL.md` 为准。
+- 用户级 Cursor 安装为完整 skill 目录树（`~/.cursor/skills/<skill>/`），源文件仍以 `SKILL.md` 为准。

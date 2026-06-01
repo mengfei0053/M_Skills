@@ -13,15 +13,15 @@ This AGENTS.md scopes guidance to `scripts`. Parent AGENTS guidance still applie
 
 ### Files
 - `install-project-harmonyos-skills.sh`
-- `install-user-skills.sh`
+- `install-user-skills.py`
 
 ### Subdirectories
 - None
 
 <!-- OMX:AGENTS-INIT:MANUAL:START -->
 ## Local Notes
-- 脚本使用 Bash，保持 `set -euo pipefail`，避免依赖调用方当前目录。
-- 修改脚本后至少运行 `bash -n scripts/*.sh`；若逻辑可安全演练，再做非破坏性 smoke test。
+- Bash 脚本保持 `set -euo pipefail`；`install-user-skills.py` 使用标准库，需支持 Windows / Linux / macOS。
+- 修改 Bash 脚本后至少运行 `bash -n scripts/*.sh`；修改 `install-user-skills.py` 后运行 `python3 -m py_compile scripts/install-user-skills.py`。
 - 安装目标或输出格式变化时，同步更新 `docs/installation.md` 和 `docs/repo-init.md`。
-- `install-user-skills.sh` 末尾会安装 [playwright-cli](https://github.com/microsoft/playwright-cli) 与 skill，并从 ima agent-interface 安装 `ima-skill`、交互写入 `~/.config/ima/` 凭证。
+- `install-user-skills.py` 末尾会安装 [playwright-cli](https://github.com/microsoft/playwright-cli) 与 skill，并从 ima agent-interface 安装 `ima-skill`、交互写入 `~/.config/ima/` 凭证。
 <!-- OMX:AGENTS-INIT:MANUAL:END -->
