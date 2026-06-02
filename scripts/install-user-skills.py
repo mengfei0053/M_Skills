@@ -25,8 +25,12 @@ GITHUB_CLI_INSTALL_LINUX_URL = (
     "https://github.com/cli/cli/blob/trunk/docs/install_linux.md"
 )
 GITHUB_CLI_SKILL_MANUAL_URL = "https://cli.github.com/manual/gh_skill"
-M_SKILLS_RAW_BASE_URL = "https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main"
-M_SKILLS_USER_CONTENTS_API_URL = "https://api.github.com/repos/mengfei0053/M_Skills/contents/skills/user?ref=main"
+M_SKILLS_RAW_BASE_URL = (
+    "https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main"
+)
+M_SKILLS_USER_CONTENTS_API_URL = (
+    "https://api.github.com/repos/mengfei0053/M_Skills/contents/skills/user?ref=main"
+)
 PLAYWRIGHT_CLI_REPO_URL = "https://github.com/microsoft/playwright-cli"
 IMA_AGENT_INTERFACE_URL = "https://ima.qq.com/agent-interface"
 JS_BUNDLE_RE = re.compile(
@@ -35,6 +39,34 @@ JS_BUNDLE_RE = re.compile(
 IMA_SKILLS_ZIP_RE = re.compile(
     r"https://app-dl\.ima\.qq\.com/skills/ima-skills-[0-9.]+\.zip"
 )
+IMA_SUBSKILL_FRONTMATTERS = {
+    "notes/SKILL.md": """---
+name: ima-notes
+description: Manage IMA personal notes through OpenAPI, including searching, listing, reading, creating, and appending notes with privacy and UTF-8 safety rules.
+version: 1.1.7
+author: IMA OpenAPI Skill
+license: MIT
+metadata:
+  hermes:
+    tags: [ima, notes, openapi, personal-knowledge]
+    related_skills: [ima-skill]
+---
+
+""",
+    "knowledge-base/SKILL.md": """---
+name: ima-knowledge-base
+description: Manage IMA knowledge bases through OpenAPI, including file uploads, URL imports, note imports, browsing, and searching with upload safety gates.
+version: 1.1.7
+author: IMA OpenAPI Skill
+license: MIT
+metadata:
+  hermes:
+    tags: [ima, knowledge-base, openapi, file-upload]
+    related_skills: [ima-skill]
+---
+
+""",
+}
 USER_AGENT = "M_Skills-install-user-skills/1.0"
 TARGET_ENV_VAR = "M_SKILLS_INSTALL_TARGETS"
 REPO_DIR_ENV_VAR = "M_SKILLS_REPO_DIR"
@@ -441,12 +473,12 @@ def fetch_remote_user_skill_names() -> list[str]:
 
 
 def fetch_remote_user_skill(skill_name: str) -> str:
-    return http_get_text(
-        f"{M_SKILLS_RAW_BASE_URL}/skills/user/{skill_name}/SKILL.md"
-    )
+    return http_get_text(f"{M_SKILLS_RAW_BASE_URL}/skills/user/{skill_name}/SKILL.md")
 
 
-def install_repo_user_skills_from_remote(report: InstallReport, targets: set[str]) -> None:
+def install_repo_user_skills_from_remote(
+    report: InstallReport, targets: set[str]
+) -> None:
     print(
         "Local skills/user directory not found; installing user skills from GitHub raw content."
     )
@@ -455,7 +487,9 @@ def install_repo_user_skills_from_remote(report: InstallReport, targets: set[str
         try:
             content = fetch_remote_user_skill(skill_name)
         except URLError as exc:
-            raise RuntimeError(f"Failed to fetch remote skill {skill_name}: {exc}") from exc
+            raise RuntimeError(
+                f"Failed to fetch remote skill {skill_name}: {exc}"
+            ) from exc
         report.repo_skills.append(skill_name)
         for option in options:
             dest = option.root() / skill_name / "SKILL.md"
@@ -485,6 +519,28 @@ def install_tree_skill(
         dest = option.root() / skill_name
         install_skill_tree(skill_src, dest)
         record_install(report, option.label, skill_name, dest)
+
+
+def has_yaml_frontmatter(path: Path) -> bool:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return False
+
+    if not text.startswith("---\n"):
+        return False
+
+    return "\n---\n" in text[4:]
+
+
+def ensure_ima_subskill_frontmatters(skill_src: Path) -> None:
+    for relative_path, frontmatter in IMA_SUBSKILL_FRONTMATTERS.items():
+        skill_file = skill_src / relative_path
+        if not skill_file.is_file() or has_yaml_frontmatter(skill_file):
+            continue
+
+        content = skill_file.read_text(encoding="utf-8")
+        skill_file.write_text(frontmatter + content, encoding="utf-8")
 
 
 def install_github_cli(report: InstallReport, system: str) -> bool:
@@ -601,7 +657,9 @@ def install_repo_user_skills_with_gh(report: InstallReport, targets: set[str]) -
     local_repo = find_repo_dir(strict_env=False)
     if local_repo is None:
         report.tools["gh skill"] = "skipped (no local repo)"
-        print("Skipping gh skill install because no local M_Skills repository was found.")
+        print(
+            "Skipping gh skill install because no local M_Skills repository was found."
+        )
         return True
 
     gh_path = which("gh")
@@ -721,7 +779,9 @@ def install_playwright_cli_and_skills(report: InstallReport, targets: set[str]) 
 
     install_env, fallback = playwright_install_env()
     if fallback is None:
-        print("Bootstrapping Playwright browser dependencies (playwright-cli install) ...")
+        print(
+            "Bootstrapping Playwright browser dependencies (playwright-cli install) ..."
+        )
     else:
         print(
             "Bootstrapping Playwright browser dependencies "
@@ -800,6 +860,7 @@ def install_ima_skills(report: InstallReport, targets: set[str]) -> bool:
             report.tree_skills["ima-skill"] = False
             return False
 
+        ensure_ima_subskill_frontmatters(skill_src)
         install_tree_skill(report, targets, "ima-skill", skill_src)
 
     report.tree_skills["ima-skill"] = True
