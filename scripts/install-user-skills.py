@@ -26,6 +26,7 @@ GITHUB_CLI_INSTALL_LINUX_URL = (
     "https://github.com/cli/cli/blob/trunk/docs/install_linux.md"
 )
 GITHUB_CLI_SKILL_MANUAL_URL = "https://cli.github.com/manual/gh_skill"
+BITWARDEN_CLI_DOWNLOAD_URL = "https://github.com/bitwarden/clients/releases"
 M_SKILLS_RAW_BASE_URL = (
     "https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main"
 )
@@ -303,24 +304,17 @@ def validate_download_url(url: str) -> str:
 
 def http_get_text(url: str) -> str:
     safe_url = validate_download_url(url)
-    request = Request(
-        safe_url, headers={"User-Agent": USER_AGENT}
-    )  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-    with (
-        urlopen(request, timeout=60) as response
-    ):  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+    request = Request(safe_url, headers={"User-Agent": USER_AGENT})
+    # nosemgrep: URL was validated by validate_download_url() before this call.
+    with urlopen(request, timeout=60) as response:
         return response.read().decode("utf-8", errors="replace")
 
 
 def http_download(url: str, dest: Path) -> None:
     safe_url = validate_download_url(url)
-    request = Request(
-        safe_url, headers={"User-Agent": USER_AGENT}
-    )  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-    with (
-        urlopen(request, timeout=120) as response,
-        dest.open("wb") as handle,
-    ):  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+    request = Request(safe_url, headers={"User-Agent": USER_AGENT})
+    # nosemgrep: URL was validated by validate_download_url() before this call.
+    with urlopen(request, timeout=120) as response, dest.open("wb") as handle:
         shutil.copyfileobj(response, handle)
 
 
@@ -408,6 +402,67 @@ def command_succeeds(args: list[str]) -> bool:
         ).returncode
         == 0
     )
+
+
+def require_bitwarden_cli(report: InstallReport) -> bool:
+    bw_path = which("bw")
+    if bw_path is None:
+        print(
+            "错误: 未找到 Bitwarden CLI 命令 `bw`。这是运行安装脚本的必需前置条件。",
+            file=sys.stderr,
+        )
+        print(
+            f"请下载并安装 Bitwarden CLI: {BITWARDEN_CLI_DOWNLOAD_URL}",
+            file=sys.stderr,
+        )
+        print("安装后运行 `bw login` 完成登录，再重新执行本脚本。", file=sys.stderr)
+        report.tools["bw"] = "not found"
+        return False
+
+    report.tools["bw"] = bw_path
+    try:
+        result = subprocess.run(
+            [bw_path, "status", "--raw"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(f"错误: 无法检测 Bitwarden CLI 登录状态: {exc}", file=sys.stderr)
+        print("请确认 `bw status --raw` 可正常执行后重试。", file=sys.stderr)
+        report.tools["bw"] = f"status check failed: {exc}"
+        return False
+
+    status = result.stdout.strip().lower()
+    if result.returncode != 0:
+        stderr = result.stderr.strip() or "unknown error"
+        print(f"错误: `bw status --raw` 执行失败: {stderr}", file=sys.stderr)
+        print("请先运行 `bw login` 完成登录，再重新执行本脚本。", file=sys.stderr)
+        report.tools["bw"] = f"status failed: {stderr}"
+        return False
+
+    if status == "unauthenticated" or not status:
+        print("错误: Bitwarden CLI 已安装，但当前尚未登录。", file=sys.stderr)
+        print("请先运行 `bw login` 完成登录，再重新执行本脚本。", file=sys.stderr)
+        report.tools["bw"] = status or "empty status"
+        return False
+
+    if status not in {"locked", "unlocked"}:
+        print(
+            f"错误: 无法识别 Bitwarden CLI 登录状态: {status!r}。",
+            file=sys.stderr,
+        )
+        print(
+            "请确认 `bw status --raw` 输出为 locked 或 unlocked 后重试。",
+            file=sys.stderr,
+        )
+        report.tools["bw"] = f"unexpected status: {status}"
+        return False
+
+    report.tools["bw"] = f"{bw_path} ({status})"
+    print(f"Bitwarden CLI: {bw_path} ({status})")
+    return True
 
 
 def sudo_prefix() -> str | None:
@@ -976,6 +1031,7 @@ def print_install_summary(report: InstallReport) -> None:
     print("=" * 72)
 
     tool_labels = {
+        "bw": "Bitwarden CLI (bw)",
         "gh": "GitHub CLI (gh)",
         "gh skill": "gh skill",
         "node": "Node.js",
@@ -985,6 +1041,7 @@ def print_install_summary(report: InstallReport) -> None:
     }
     tool_rows = []
     for key in (
+        "bw",
         "gh",
         "gh skill",
         "node",
@@ -1038,6 +1095,9 @@ def print_install_summary(report: InstallReport) -> None:
 
 def main() -> int:
     report = InstallReport()
+    if not require_bitwarden_cli(report):
+        return 1
+
     system = check_platform()
     targets = prompt_install_targets()
     report.selected_targets = sorted(targets)

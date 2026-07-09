@@ -29,7 +29,7 @@ python scripts/install-user-skills.py
 curl -fsSL https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main/scripts/install-user-skills.py | python3
 ```
 
-Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`。脚本会自动查找包含 `skills/<skill>/SKILL.md` 的仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/` 内容安装；也可设置 `M_SKILLS_REPO_DIR=/path/to/M_Skills` 显式指定本地仓库。
+Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`。脚本要求已安装并登录 Bitwarden CLI `bw`；未安装时请从 <https://github.com/bitwarden/clients/releases> 下载，安装后运行 `bw login`。脚本会自动查找包含 `skills/<skill>/SKILL.md` 的仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/` 内容安装；也可设置 `M_SKILLS_REPO_DIR=/path/to/M_Skills` 显式指定本地仓库。
 
 脚本末尾还会：
 
@@ -43,6 +43,7 @@ Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`
 | 文档 | 地址 |
 |---|---|
 | 安装策略 | `docs/installation.md` |
+| 安装脚本说明 | `scripts/README.md` |
 | 深度初始化记录 | `docs/repo-init.md` |
 
 ## 安装目标
@@ -62,7 +63,7 @@ Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`
 ```text
 M_Skills/
 ├── docs/             # 安装、使用与说明文档
-├── scripts/          # 安装脚本与辅助脚本
+├── scripts/          # 安装脚本、辅助脚本与脚本说明
 ├── skills/           # 用户级通用 Skill 文档
 │   ├── apply-worktree/
 │   ├── auto-commit-push/
@@ -127,6 +128,7 @@ find ~/.claude/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.config/opencode/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.openclaw/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.cursor/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
+command -v bw && bw status --raw
 command -v gh && gh --version
 command -v gh && gh skill --help | head -5
 ```

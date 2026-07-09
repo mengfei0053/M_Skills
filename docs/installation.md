@@ -18,6 +18,7 @@ M_Skills 现在只维护用户级通用 Skills。每个 Skill 直接位于 `skil
 |---|---|
 | Git | 用于克隆仓库和同步更新 |
 | Python 3.8+ | 执行 `scripts/install-user-skills.py`（支持 Windows / Linux / macOS） |
+| Bitwarden CLI `bw` | 必需前置条件；需已安装并通过 `bw login` 登录。未安装时从 <https://github.com/bitwarden/clients/releases> 下载 |
 | GitHub CLI `gh` | 脚本会按官方 Linux 包安装说明自动安装/检查，并用预览版 `gh skill` 进行本地 skill 安装 |
 | Node.js 18+ | 安装 `@playwright/cli` |
 | `npm` | 全局安装 `@playwright/cli` |
@@ -47,6 +48,8 @@ M_Skills/
 | 安装用户级 Skills（本地仓库） | `python scripts/install-user-skills.py` |
 | 安装用户级 Skills（远程单文件） | `curl -fsSL https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main/scripts/install-user-skills.py \| python3` |
 
+`install-user-skills.py` 会先检查必需前置条件：`bw` 命令必须存在，且 `bw status --raw` 必须输出 `locked` 或 `unlocked`。如果未安装，脚本会提示从 <https://github.com/bitwarden/clients/releases> 下载；如果尚未登录，脚本会提示先运行 `bw login`。
+
 `install-user-skills.py` 在完成 `skills/` 直接文件同步后，还会：
 
 1. 按 [GitHub CLI 官方 Linux 安装说明](https://github.com/cli/cli/blob/trunk/docs/install_linux.md) 安装或检查 `gh`（Debian/Ubuntu `apt`、RPM `dnf`/`yum`、openSUSE `zypper`；非 Linux 平台提示手动安装）。
@@ -75,6 +78,7 @@ find ~/.claude/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.config/opencode/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.openclaw/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.cursor/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
+command -v bw && bw status --raw
 command -v gh && gh --version
 command -v gh && gh skill --help | head -5
 find ~/.agents/skills/playwright-cli -maxdepth 2 -name 'SKILL.md' 2>/dev/null | sort
