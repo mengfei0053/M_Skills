@@ -229,6 +229,17 @@ def gh_token_file() -> Path:
     return m_skill_auths_dir() / "gh_token"
 
 
+def bw_session_file() -> Path:
+    return m_skill_auths_dir() / "bw_session"
+
+
+def persist_bw_session(session: str) -> None:
+    session_path = bw_session_file()
+    secure_dir(session_path.parent)
+    secure_write(session_path, session + "\n")
+    os.environ["BW_SESSION"] = session
+
+
 def parse_target_keys(raw: str) -> set[str]:
     value = raw.strip().lower()
     if value in {"all", "*", ""}:
@@ -419,6 +430,67 @@ def command_succeeds(args: list[str]) -> bool:
     )
 
 
+def parse_bitwarden_status(raw_status: str) -> str:
+    value = raw_status.strip()
+    if not value:
+        return ""
+
+    lowered = value.lower()
+    if lowered in {"locked", "unlocked", "unauthenticated"}:
+        return lowered
+
+    try:
+        payload = json.loads(value)
+    except json.JSONDecodeError as exc:
+        _ = exc
+        return lowered
+
+    if isinstance(payload, dict) and isinstance(payload.get("status"), str):
+        return payload["status"].strip().lower()
+    return lowered
+
+
+def unlock_bitwarden_vault(bw_path: str) -> bool:
+    print("Bitwarden vault 当前为 locked，正在执行 `bw unlock --raw`。")
+    print("请按 Bitwarden CLI 提示输入主密码。")
+    try:
+        if os.name != "nt" and not sys.stdin.isatty():
+            with Path("/dev/tty").open("r", encoding="utf-8") as stdin_handle:
+                result = subprocess.run(
+                    [bw_path, "unlock", "--raw"],
+                    stdin=stdin_handle,
+                    stdout=subprocess.PIPE,
+                    text=True,
+                    check=False,
+                    timeout=120,
+                )
+        else:
+            result = subprocess.run(
+                [bw_path, "unlock", "--raw"],
+                stdout=subprocess.PIPE,
+                text=True,
+                check=False,
+                timeout=120,
+            )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(f"错误: 无法执行 `bw unlock --raw`: {exc}", file=sys.stderr)
+        return False
+
+    if result.returncode != 0:
+        print("错误: `bw unlock --raw` 执行失败，请确认主密码正确后重试。", file=sys.stderr)
+        return False
+
+    session = result.stdout.strip()
+    if not session:
+        print("错误: `bw unlock --raw` 未返回 BW_SESSION。", file=sys.stderr)
+        return False
+
+    persist_bw_session(session)
+    print(f"Bitwarden vault 已解锁，session 已写入: {bw_session_file()}")
+    print("BW_SESSION 已设置到当前安装进程，后续 Bitwarden 读取会自动复用。")
+    return True
+
+
 def require_bitwarden_cli(report: InstallReport) -> bool:
     bw_path = which("bw")
     if bw_path is None:
@@ -449,7 +521,7 @@ def require_bitwarden_cli(report: InstallReport) -> bool:
         report.tools["bw"] = f"status check failed: {exc}"
         return False
 
-    status = result.stdout.strip().lower()
+    status = parse_bitwarden_status(result.stdout)
     if result.returncode != 0:
         stderr = result.stderr.strip() or "unknown error"
         print(f"错误: `bw status --raw` 执行失败: {stderr}", file=sys.stderr)
@@ -469,11 +541,17 @@ def require_bitwarden_cli(report: InstallReport) -> bool:
             file=sys.stderr,
         )
         print(
-            "请确认 `bw status --raw` 输出为 locked 或 unlocked 后重试。",
+            "请确认 `bw status --raw` 输出为 locked/unlocked，或 JSON 中包含 status=locked/unlocked 后重试。",
             file=sys.stderr,
         )
         report.tools["bw"] = f"unexpected status: {status}"
         return False
+
+    if status == "locked":
+        if not unlock_bitwarden_vault(bw_path):
+            report.tools["bw"] = "locked"
+            return False
+        status = "unlocked"
 
     report.tools["bw"] = f"{bw_path} ({status})"
     print(f"Bitwarden CLI: {bw_path} ({status})")
@@ -1431,6 +1509,7 @@ def print_install_summary(report: InstallReport) -> None:
         ["项目", "路径 / 状态"],
         [
             ["凭证目录", format_path(auth_dir)],
+            ["Bitwarden session", format_path(bw_session_file())],
             ["GitHub token", format_path(gh_token_file())],
             ["配置状态", gh_token_status],
         ],

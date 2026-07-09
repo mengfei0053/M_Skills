@@ -49,7 +49,7 @@ M_Skills/
 | 安装用户级 Skills（本地仓库） | `python scripts/install-user-skills.py` |
 | 安装用户级 Skills（远程单文件） | `curl -fsSL https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main/scripts/install-user-skills.py \| python3` |
 
-`install-user-skills.py` 会先检查必需前置条件：`bw` 命令必须存在，且 `bw status --raw` 必须输出 `locked` 或 `unlocked`。如果未安装，脚本会提示从 <https://github.com/bitwarden/clients/releases> 下载；如果尚未登录，脚本会提示先运行 `bw login`。
+`install-user-skills.py` 会先检查必需前置条件：`bw` 命令必须存在，且 `bw status --raw` 必须输出 `locked` / `unlocked`，或返回 JSON 且其中 `status` 字段为 `locked` / `unlocked`。如果未安装，脚本会提示从 <https://github.com/bitwarden/clients/releases> 下载；如果尚未登录，脚本会提示先运行 `bw login`；如果 vault 为 `locked`，脚本会自动执行 `bw unlock --raw` 让用户输入主密码。
 
 `install-user-skills.py` 在完成 `skills/` 直接文件同步后，还会：
 
@@ -61,7 +61,7 @@ M_Skills/
 6. 交互提示输入 IMA **Client ID** 与 **API Key**，写入 `~/.config/ima/client_id` 与 `~/.config/ima/api_key`（已存在则跳过）。
 7. 安装完成后执行 `bw get password github_gh_token --session "$BW_SESSION"`，将 GitHub token 写入 `~/.config/m_skill_auths/gh_token`；如果 `gh auth status` 显示未登录，则执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`。
 
-脚本开始时会交互选择安装目标（Agent / Claude / OpenCode / OpenClaw / Cursor Skill）。脚本会从脚本所在目录、当前工作目录及其父目录自动查找包含 `skills/<skill>/SKILL.md` 的 M_Skills 仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/` 内容安装。可用 `M_SKILLS_REPO_DIR` 显式指定本地仓库根目录。读取 GitHub token 前需要先设置 `BW_SESSION`，例如 `export BW_SESSION=$(bw unlock --raw)`。
+脚本开始时会交互选择安装目标（Agent / Claude / OpenCode / OpenClaw / Cursor Skill）。脚本会从脚本所在目录、当前工作目录及其父目录自动查找包含 `skills/<skill>/SKILL.md` 的 M_Skills 仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/` 内容安装。可用 `M_SKILLS_REPO_DIR` 显式指定本地仓库根目录。如果 Bitwarden vault 为 `locked`，脚本会自动执行 `bw unlock --raw`，将返回的 session 写入 `~/.config/m_skill_auths/bw_session`，并设置当前安装进程的 `BW_SESSION` 供后续读取 GitHub token 使用。
 
 非交互环境可通过环境变量预设，例如：
 
@@ -87,6 +87,8 @@ command -v gh && gh skill --help | head -5
 command -v glab && glab --version
 gh auth status
 ls -la ~/.config/m_skill_auths/ 2>/dev/null
+test -s ~/.config/m_skill_auths/bw_session && echo bw_session configured
+test -s ~/.config/m_skill_auths/gh_token && echo gh_token configured
 find ~/.agents/skills/playwright-cli -maxdepth 2 -name 'SKILL.md' 2>/dev/null | sort
 command -v playwright-cli && playwright-cli --help | head -5
 find ~/.agents/skills/ima-skill -maxdepth 2 -name 'SKILL.md' 2>/dev/null | sort

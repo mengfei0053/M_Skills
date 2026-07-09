@@ -24,7 +24,7 @@ M_Skills 是个人常用 Skills 收集仓库，用于沉淀可复用的工作流
 | `docs/installation.md` | 安装策略说明 | 安装范围、目标目录变化时更新 |
 | `docs/repo-init.md` | 深度初始化记录 | 后续结构或规则变化时更新 |
 | `scripts/README.md` | `install-user-skills.py` 的使用说明、环境变量、安装目标、验证与维护说明 | 安装脚本行为变化时同步更新 |
-| `scripts/install-user-skills.py` | 跨平台安装 `skills/` 下的用户级通用 Skills；启动时要求 Bitwarden CLI `bw` 已安装且已登录；自动查找包含 `skills/<skill>/SKILL.md` 的仓库根目录并支持 `M_SKILLS_REPO_DIR` 覆盖；本地无仓库时支持 `curl` 单文件运行并从 GitHub raw/API 拉取 `skills/`；在 Linux 上按 GitHub CLI 官方说明安装/检查 `gh` 并尝试用 `gh skill install --from-local` 安装本地 skills；检查/安装 GitLab CLI `glab`（macOS 用 Homebrew，Linux / Windows 从最新 release 下载）；安装 [playwright-cli](https://github.com/microsoft/playwright-cli) 与 skill；从 [ima agent-interface](https://ima.qq.com/agent-interface) 安装 `ima-skill` 并提示 `~/.config/ima/` 凭证；安装完成后从 Bitwarden 条目 `github_gh_token` 导出 GitHub token 到 `~/.config/m_skill_auths/gh_token`，并在 `gh` 未登录时执行 `gh auth login --with-token` | 修改后运行 `python3 -m py_compile scripts/install-user-skills.py` |
+| `scripts/install-user-skills.py` | 跨平台安装 `skills/` 下的用户级通用 Skills；启动时要求 Bitwarden CLI `bw` 已安装且已登录，vault 为 `locked` 时自动执行 `bw unlock --raw`，将 session 写入 `~/.config/m_skill_auths/bw_session` 并设置当前进程 `BW_SESSION`；自动查找包含 `skills/<skill>/SKILL.md` 的仓库根目录并支持 `M_SKILLS_REPO_DIR` 覆盖；本地无仓库时支持 `curl` 单文件运行并从 GitHub raw/API 拉取 `skills/`；在 Linux 上按 GitHub CLI 官方说明安装/检查 `gh` 并尝试用 `gh skill install --from-local` 安装本地 skills；检查/安装 GitLab CLI `glab`（macOS 用 Homebrew，Linux / Windows 从最新 release 下载）；安装 [playwright-cli](https://github.com/microsoft/playwright-cli) 与 skill；从 [ima agent-interface](https://ima.qq.com/agent-interface) 安装 `ima-skill` 并提示 `~/.config/ima/` 凭证；安装完成后从 Bitwarden 条目 `github_gh_token` 导出 GitHub token 到 `~/.config/m_skill_auths/gh_token`，并在 `gh` 未登录时执行 `gh auth login --with-token` | 修改后运行 `python3 -m py_compile scripts/install-user-skills.py` |
 | `skills/` | 用户级通用 Skills | 保持 README 与本文件 Skill 清单同步 |
 | `templates/` | 可复用模板预留目录 | 新增模板后补充用途说明 |
 
@@ -73,6 +73,8 @@ command -v bw && bw status --raw
 command -v glab && glab --version
 gh auth status
 ls -la ~/.config/m_skill_auths/ 2>/dev/null
+test -s ~/.config/m_skill_auths/bw_session && echo bw_session configured
+test -s ~/.config/m_skill_auths/gh_token && echo gh_token configured
 find skills -mindepth 2 -maxdepth 3 -name SKILL.md | sort
 find docs scripts skills -maxdepth 3 -type f | sort
 ```
