@@ -11,10 +11,11 @@
 3. 从本地仓库 `skills/<skill-name>/SKILL.md` 安装 M_Skills 内置 skills。
 4. 本地仓库不可用时，从 GitHub raw/API 拉取 `skills/` 内容安装。
 5. 检查或安装 GitHub CLI `gh`，并在 `gh skill` 可用时尝试通过官方 skill 命令安装本地 skills。
-6. 全局安装 `@playwright/cli`，同步 `playwright-cli` skill，并引导安装 Playwright 浏览器依赖。
-7. 从 IMA agent-interface 下载并安装官方 `ima-skill`。
-8. 交互写入 IMA Client ID / API Key 到 `~/.config/ima/`。
-9. 打印安装摘要，包括工具状态、安装明细和 IMA 凭证路径。
+6. 检查或安装 GitLab CLI `glab`。
+7. 全局安装 `@playwright/cli`，同步 `playwright-cli` skill，并引导安装 Playwright 浏览器依赖。
+8. 从 IMA agent-interface 下载并安装官方 `ima-skill`。
+9. 交互写入 IMA Client ID / API Key 到 `~/.config/ima/`。
+10. 打印安装摘要，包括工具状态、安装明细和 IMA 凭证路径。
 
 ## 前置条件
 
@@ -107,6 +108,21 @@ M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS=1 python3 scripts/install-user-skills.py
 
 下载 URL 仅允许 HTTPS，并限制在脚本内置白名单域名中，避免 `file://` 或未知主机被 urllib 读取。
 
+## 检查 / 安装的软件总览
+
+| 软件 / 命令 | 脚本会检查什么 | 是否自动安装 | 失败或缺失时行为 |
+|---|---|---|---|
+| Bitwarden CLI `bw` | `command -v bw` 与 `bw status --raw`；状态必须是 `locked` 或 `unlocked` | 否 | 立即停止；提示从 <https://github.com/bitwarden/clients/releases> 下载并先运行 `bw login` |
+| GitHub CLI `gh` | `command -v gh` | 仅 Linux 上尝试自动安装 | Linux 无法安装时提示失败；非 Linux 提示手动安装，但直接文件复制安装仍保留 |
+| `gh skill` 子命令 | `gh skill --help` | 否 | 不可用时跳过 `gh skill install`，直接文件复制安装仍保留 |
+| GitLab CLI `glab` | `command -v glab` | 是：macOS 通过 `brew install glab`；Linux / Windows 从 GitLab 最新 release 下载匹配安装包 | 自动安装失败时提示从 <https://gitlab.com/gitlab-org/cli/-/releases> 手动下载 |
+| Node.js `node` | `command -v node` | 否 | 缺失时跳过 Playwright CLI 安装并提示需要 Node.js 18+ |
+| npm | `command -v npm` | 否 | 缺失时跳过 Playwright CLI 安装并提示需要 npm |
+| Playwright CLI `playwright-cli` | 全局安装 `@playwright/cli` 后检查 `command -v playwright-cli` | 是，通过 `npm install -g @playwright/cli@latest` | 安装失败或命令不可用时跳过 Playwright skill / 浏览器依赖并提示手动安装 |
+| Playwright 浏览器依赖 | 执行 `playwright-cli install` | 是，可用 `M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS=1` 跳过 | 超时或失败时仅记录警告；CLI 与 skill 已安装时仍视为可继续 |
+| IMA Skill `ima-skill` | 访问 IMA agent-interface，解析并下载官方 `ima-skills` zip | 是，下载并复制 skill 目录 | 下载、解析或解压失败时记录失败并提示后续手动修复 |
+| IMA 凭证目录 | 检查 `~/.config/ima/client_id` 与 `~/.config/ima/api_key` 是否已存在且非空 | 部分自动：创建目录和文件，但凭证需用户输入 | 非交互环境无法输入时打印摘要并以非零状态退出 |
+
 ## 外部依赖行为
 
 ### Bitwarden CLI
@@ -124,6 +140,15 @@ M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS=1 python3 scripts/install-user-skills.py
 - 非 Linux 平台不会自动安装 `gh`，只会提示用户手动安装。
 - 如果 `gh skill --help` 可用，脚本会额外尝试 `gh skill install --from-local`。
 - 即使 `gh skill` 不可用，直接文件复制安装结果仍会保留。
+
+### GitLab CLI
+
+- 如果 `glab` 已存在，脚本会直接记录路径。
+- macOS 上会使用 Homebrew 执行 `brew install glab`。
+- Linux / Windows 上会访问 GitLab CLI 最新 release API，选择当前系统和 CPU 架构匹配的安装包。
+- Linux 优先使用 `.deb` / `.rpm` / `.apk` 包；没有可用包管理器或 sudo 时回退到 `.tar.gz`，安装到 `~/.local/bin/glab`。
+- Windows 会下载最新 release 的 silent installer 并以 `/S` 静默安装。
+- 自动安装失败时，脚本会提示手动下载：<https://gitlab.com/gitlab-org/cli/-/releases>。
 
 ### Playwright CLI
 
@@ -165,6 +190,7 @@ find ~/.config/opencode/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.openclaw/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.cursor/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 command -v gh && gh --version
+command -v glab && glab --version
 command -v playwright-cli && playwright-cli --help | head -5
 ls -la ~/.config/ima/ 2>/dev/null
 ```

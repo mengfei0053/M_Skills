@@ -12,6 +12,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tarfile
 import tempfile
 import zipfile
 from collections.abc import Callable
@@ -27,6 +28,10 @@ GITHUB_CLI_INSTALL_LINUX_URL = (
 )
 GITHUB_CLI_SKILL_MANUAL_URL = "https://cli.github.com/manual/gh_skill"
 BITWARDEN_CLI_DOWNLOAD_URL = "https://github.com/bitwarden/clients/releases"
+GITLAB_CLI_RELEASES_URL = "https://gitlab.com/gitlab-org/cli/-/releases"
+GITLAB_CLI_LATEST_API_URL = (
+    "https://gitlab.com/api/v4/projects/gitlab-org%2Fcli/releases/permalink/latest"
+)
 M_SKILLS_RAW_BASE_URL = (
     "https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main"
 )
@@ -81,6 +86,7 @@ ALLOWED_DOWNLOAD_HOSTS = frozenset(
         "ima.qq.com",
         "static.ima.qq.com",
         "app-dl.ima.qq.com",
+        "gitlab.com",
     }
 )
 
@@ -465,12 +471,230 @@ def require_bitwarden_cli(report: InstallReport) -> bool:
     return True
 
 
-def sudo_prefix() -> str | None:
+def sudo_args() -> list[str] | None:
     if os.name != "nt" and hasattr(os, "geteuid") and os.geteuid() == 0:
-        return ""
+        return []
     if which("sudo") is not None:
-        return "sudo "
+        return ["sudo"]
     return None
+
+
+def sudo_prefix() -> str | None:
+    args = sudo_args()
+    if args is None:
+        return None
+    return " ".join(args) + (" " if args else "")
+
+
+def glab_archive_arch() -> str | None:
+    machine = platform.machine().lower()
+    if machine in {"x86_64", "amd64"}:
+        return "amd64"
+    if machine in {"aarch64", "arm64"}:
+        return "arm64"
+    if machine in {"i386", "i686", "x86"}:
+        return "386"
+    if machine.startswith("armv6"):
+        return "armv6"
+    if machine in {"ppc64le", "s390x"}:
+        return machine
+    return None
+
+
+def glab_windows_installer_arch() -> str | None:
+    archive_arch = glab_archive_arch()
+    if archive_arch == "amd64":
+        return "x86_64"
+    if archive_arch == "arm64":
+        return "arm64"
+    return None
+
+
+def latest_glab_release() -> tuple[str, dict[str, str]]:
+    try:
+        payload = json.loads(http_get_text(GITLAB_CLI_LATEST_API_URL))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Invalid GitLab CLI latest release response") from exc
+
+    tag_name = payload.get("tag_name")
+    links = payload.get("assets", {}).get("links", [])
+    if not isinstance(tag_name, str) or not isinstance(links, list):
+        raise RuntimeError("Unexpected GitLab CLI latest release response")
+
+    assets: dict[str, str] = {}
+    for link in links:
+        if not isinstance(link, dict):
+            continue
+        name = link.get("name")
+        url = link.get("direct_asset_url") or link.get("url")
+        if isinstance(name, str) and isinstance(url, str):
+            assets[name] = url
+
+    if not assets:
+        raise RuntimeError("No GitLab CLI release assets found")
+    return tag_name.lstrip("v"), assets
+
+
+def glab_asset_url(assets: dict[str, str], asset_name: str) -> str:
+    url = assets.get(asset_name)
+    if url is None:
+        raise RuntimeError(f"GitLab CLI release asset not found: {asset_name}")
+    return url
+
+
+def download_glab_asset(assets: dict[str, str], asset_name: str, dest: Path) -> Path:
+    url = glab_asset_url(assets, asset_name)
+    dest.mkdir(parents=True, exist_ok=True)
+    asset_path = dest / asset_name
+    http_download(url, asset_path)
+    return asset_path
+
+
+def install_glab_tarball(archive_path: Path) -> Path:
+    with tempfile.TemporaryDirectory() as tmp:
+        extract_dir = Path(tmp)
+        with tarfile.open(archive_path, "r:gz") as archive:
+            archive.extractall(extract_dir)
+
+        candidates: list[Path] = []
+        for path in extract_dir.rglob("glab"):
+            try:
+                if path.is_file() and os.access(path, os.X_OK):
+                    candidates.append(path)
+            except OSError:
+                continue
+        if not candidates:
+            raise RuntimeError(f"glab binary not found in {archive_path}")
+
+        source = candidates[0]
+        sudo = sudo_args()
+        if sudo is not None:
+            dest = Path("/usr/local/bin/glab")
+            run_command([*sudo, "install", "-m", "755", str(source), str(dest)])
+            return dest
+
+        user_bin = home() / ".local" / "bin"
+        user_bin.mkdir(parents=True, exist_ok=True)
+        dest = user_bin / "glab"
+        shutil.copy2(source, dest)
+        dest.chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+        os.environ["PATH"] = f"{user_bin}{os.pathsep}{os.environ.get('PATH', '')}"
+        return dest
+
+
+def install_glab_linux_package(
+    version: str, assets: dict[str, str], tmp_dir: Path
+) -> bool:
+    arch = glab_archive_arch()
+    if arch is None:
+        raise RuntimeError(
+            f"Unsupported Linux architecture for glab: {platform.machine()}"
+        )
+
+    sudo = sudo_args()
+    if sudo is not None and which("apt") is not None and which("dpkg") is not None:
+        package = download_glab_asset(
+            assets, f"glab_{version}_linux_{arch}.deb", tmp_dir
+        )
+        run_command([*sudo, "apt", "install", "-y", str(package)])
+        return True
+
+    if sudo is not None and which("dnf") is not None:
+        package = download_glab_asset(
+            assets, f"glab_{version}_linux_{arch}.rpm", tmp_dir
+        )
+        run_command([*sudo, "dnf", "install", "-y", str(package)])
+        return True
+
+    if sudo is not None and which("yum") is not None:
+        package = download_glab_asset(
+            assets, f"glab_{version}_linux_{arch}.rpm", tmp_dir
+        )
+        run_command([*sudo, "yum", "install", "-y", str(package)])
+        return True
+
+    if sudo is not None and which("zypper") is not None:
+        package = download_glab_asset(
+            assets, f"glab_{version}_linux_{arch}.rpm", tmp_dir
+        )
+        run_command([*sudo, "zypper", "install", "-y", str(package)])
+        return True
+
+    if sudo is not None and which("apk") is not None:
+        package = download_glab_asset(
+            assets, f"glab_{version}_linux_{arch}.apk", tmp_dir
+        )
+        run_command([*sudo, "apk", "add", "--allow-untrusted", str(package)])
+        return True
+
+    archive = download_glab_asset(
+        assets, f"glab_{version}_linux_{arch}.tar.gz", tmp_dir
+    )
+    installed_path = install_glab_tarball(archive)
+    print(f"glab installed from tarball: {installed_path}")
+    return True
+
+
+def install_glab_windows_package(
+    version: str, assets: dict[str, str], tmp_dir: Path
+) -> bool:
+    arch = glab_windows_installer_arch()
+    if arch is None:
+        raise RuntimeError(
+            f"Unsupported Windows architecture for glab: {platform.machine()}"
+        )
+
+    installer = download_glab_asset(
+        assets, f"glab_{version}_Windows_{arch}_installer.exe", tmp_dir
+    )
+    run_command([str(installer), "/S"], timeout=300)
+    return True
+
+
+def install_glab_cli(report: InstallReport, system: str) -> bool:
+    glab_path = which("glab")
+    if glab_path is not None:
+        report.tools["glab"] = glab_path
+        print(f"GitLab CLI already installed: {glab_path}")
+        return True
+
+    print("")
+    print("Installing GitLab CLI (glab) ...")
+    try:
+        if system == "Darwin":
+            if which("brew") is None:
+                raise RuntimeError(
+                    "Homebrew is required to install glab on macOS. "
+                    f"Install Homebrew or download glab from {GITLAB_CLI_RELEASES_URL}."
+                )
+            run_command(["brew", "install", "glab"])
+        else:
+            version, assets = latest_glab_release()
+            with tempfile.TemporaryDirectory() as tmp:
+                tmp_dir = Path(tmp)
+                if system == "Linux":
+                    install_glab_linux_package(version, assets, tmp_dir)
+                elif system == "Windows":
+                    install_glab_windows_package(version, assets, tmp_dir)
+                else:
+                    raise RuntimeError(
+                        f"Automatic glab installation is unsupported on {system}. "
+                        f"Download from {GITLAB_CLI_RELEASES_URL}."
+                    )
+    except (OSError, RuntimeError, subprocess.CalledProcessError, URLError) as exc:
+        print(f"Failed to install GitLab CLI (glab): {exc}", file=sys.stderr)
+        print(f"Download manually: {GITLAB_CLI_RELEASES_URL}", file=sys.stderr)
+        report.tools["glab"] = "not found"
+        return False
+
+    glab_path = which("glab")
+    report.tools["glab"] = glab_path or "installed; restart shell if not on PATH"
+    if glab_path is None:
+        print("glab installed, but it is not currently on PATH.", file=sys.stderr)
+        return False
+
+    print(f"GitLab CLI installation completed: {glab_path}")
+    return True
 
 
 def env_flag_enabled(name: str) -> bool:
@@ -1034,6 +1258,7 @@ def print_install_summary(report: InstallReport) -> None:
         "bw": "Bitwarden CLI (bw)",
         "gh": "GitHub CLI (gh)",
         "gh skill": "gh skill",
+        "glab": "GitLab CLI (glab)",
         "node": "Node.js",
         "npm": "npm",
         "playwright-cli": "playwright-cli",
@@ -1044,6 +1269,7 @@ def print_install_summary(report: InstallReport) -> None:
         "bw",
         "gh",
         "gh skill",
+        "glab",
         "node",
         "npm",
         "playwright-cli",
@@ -1116,6 +1342,12 @@ def main() -> int:
     else:
         print(
             "GitHub CLI installation failed or was skipped; direct file-copy installation has already completed.",
+            file=sys.stderr,
+        )
+
+    if not install_glab_cli(report, system):
+        print(
+            f"GitLab CLI (glab) installation failed; install manually from {GITLAB_CLI_RELEASES_URL}",
             file=sys.stderr,
         )
 

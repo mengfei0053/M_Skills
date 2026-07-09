@@ -10,6 +10,12 @@
 |---|---|---|---|
 | 用户级通用 Skills | `skills/` | 当前用户的 Agent / Claude / OpenCode / OpenClaw / Cursor 配置 | Git、worktree、提交、编程规范等跨项目能力 |
 
+## 密钥管理
+
+本项目使用 Bitwarden 管理各类密钥、API Key、Token 和登录凭证。安装脚本不会把密钥写入仓库；运行前要求本机已安装并登录 Bitwarden CLI `bw`，以确保后续凭证读取、同步或人工配置都有统一的密钥来源。
+
+请勿把密钥、`.env`、Token 或凭证明文提交到本仓库。需要配置凭证时，优先存入 Bitwarden，并只在本地安全路径中生成运行所需文件。
+
 ## 快速安装
 
 ```bash
@@ -35,8 +41,9 @@ Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`
 
 1. 按 GitHub CLI 官方 Linux 安装说明安装/检查 [`gh`](https://github.com/cli/cli/blob/trunk/docs/install_linux.md)（非 Linux 平台提示手动安装）。
 2. 参考 [`gh skill`](https://cli.github.com/manual/gh_skill) 预览能力，用 `gh skill install --from-local --dir ... --force` 将本仓库 skills 安装到所选目标目录（直接文件复制仍作为基础安装路径）。
-3. 从 [playwright-cli](https://github.com/microsoft/playwright-cli) 全局安装 `@playwright/cli`，并将 `playwright-cli` skill 同步到用户级 skills 目录。
-4. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 安装官方 `ima-skill`，并提示配置 IMA Client ID / API Key（写入 `~/.config/ima/`）。
+3. 检查/安装 [GitLab CLI `glab`](https://gitlab.com/gitlab-org/cli/-/releases)：macOS 通过 Homebrew，Linux / Windows 从最新 release 下载匹配安装包。
+4. 从 [playwright-cli](https://github.com/microsoft/playwright-cli) 全局安装 `@playwright/cli`，并将 `playwright-cli` skill 同步到用户级 skills 目录。
+5. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 安装官方 `ima-skill`，并提示配置 IMA Client ID / API Key（写入 `~/.config/ima/`）。
 
 更多说明见：
 
@@ -131,4 +138,5 @@ find ~/.cursor/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 command -v bw && bw status --raw
 command -v gh && gh --version
 command -v gh && gh skill --help | head -5
+command -v glab && glab --version
 ```
