@@ -1,6 +1,6 @@
 # Repository Init Notes
 
-> 更新时间：2026-05-12
+> 更新时间：2026-07-09
 > 用途：给后续 Agent / 人工维护者快速接手本仓库，并明确“后续修改及时更新”的同步规则。
 
 ## 项目定位
@@ -10,7 +10,7 @@ M_Skills 是个人常用 Skills 收集仓库，用于沉淀可复用的工作流
 核心原则：
 
 - Skill 以文档为主，每个 Skill 独立目录内使用 `SKILL.md`。
-- 通用能力放在 `skills/user/`，技术栈专用能力放在对应分类目录，例如 `skills/harmonyos/`。
+- 通用能力直接放在 `skills/<skill-name>/`。
 - 安装脚本只负责复制/生成目标文件；安装策略与命令说明放在 `docs/`。
 - 任何结构、Skill 清单、安装路径、脚本行为变化，都要同步更新相关文档。
 
@@ -23,36 +23,31 @@ M_Skills 是个人常用 Skills 收集仓库，用于沉淀可复用的工作流
 | `README.md` | 仓库入口说明与 Skill 清单 | 新增/删除/重命名 Skill 时必须更新 |
 | `docs/installation.md` | 安装策略说明 | 安装范围、目标目录变化时更新 |
 | `docs/repo-init.md` | 深度初始化记录 | 后续结构或规则变化时更新 |
-| `scripts/install-user-skills.py` | 跨平台安装 `skills/user/` 到用户级工具配置；自动查找包含 `skills/user/` 的仓库根目录并支持 `M_SKILLS_REPO_DIR` 覆盖；本地无仓库时支持 `curl` 单文件运行并从 GitHub raw/API 拉取 `skills/user/`；在 Linux 上按 GitHub CLI 官方说明安装/检查 `gh` 并尝试用 `gh skill install --from-local` 安装本地 skills；安装 [playwright-cli](https://github.com/microsoft/playwright-cli) 与 skill；从 [ima agent-interface](https://ima.qq.com/agent-interface) 安装 `ima-skill` 并提示 `~/.config/ima/` 凭证 | 修改后运行 `python3 -m py_compile scripts/install-user-skills.py` |
-| `scripts/install-project-harmonyos-skills.sh` | 安装 `skills/harmonyos/` 到目标项目 | 修改后运行 `bash -n scripts/*.sh` |
-| `skills/user/` | 用户级通用 Skills | 保持 README 与本文件 Skill 清单同步 |
-| `skills/harmonyos/` | HarmonyOS / OpenHarmony 项目级 Skills | 只安装到具体项目，不安装到全局用户级 |
+| `scripts/install-user-skills.py` | 跨平台安装 `skills/` 下的用户级通用 Skills；自动查找包含 `skills/<skill>/SKILL.md` 的仓库根目录并支持 `M_SKILLS_REPO_DIR` 覆盖；本地无仓库时支持 `curl` 单文件运行并从 GitHub raw/API 拉取 `skills/`；在 Linux 上按 GitHub CLI 官方说明安装/检查 `gh` 并尝试用 `gh skill install --from-local` 安装本地 skills；安装 [playwright-cli](https://github.com/microsoft/playwright-cli) 与 skill；从 [ima agent-interface](https://ima.qq.com/agent-interface) 安装 `ima-skill` 并提示 `~/.config/ima/` 凭证 | 修改后运行 `python3 -m py_compile scripts/install-user-skills.py` |
+| `skills/` | 用户级通用 Skills | 保持 README 与本文件 Skill 清单同步 |
 | `templates/` | 可复用模板预留目录 | 新增模板后补充用途说明 |
 
 ## 当前 Skills 清单
 
 | Skill | 路径 | 分类 | 用途 |
 |---|---|---|---|
-| `apply-worktree` | `skills/user/apply-worktree/SKILL.md` | 用户级通用 | 将 worktree 开发内容合并回主项目分支，验证后清理 worktree 和任务分支 |
-| `auto-commit-push` | `skills/user/auto-commit-push/SKILL.md` | 用户级通用 | 安全提交当前任务相关改动并推送，处理 fetch / rebase / 分叉场景 |
-| `programming-standards` | `skills/user/programming-standards/SKILL.md` | 用户级通用 | 通用代码质量、命名、错误处理、测试性和 Review 标准 |
-| `karpathy-guidelines` | `skills/user/karpathy-guidelines/SKILL.md` | 用户级通用 | 减少 LLM 常见编码失误：先思考、保持简单、精准改动、目标驱动验证 |
-| `deeb-init` | `skills/user/deeb-init/SKILL.md` | 用户级通用 | 深度扫描项目并生成/刷新根目录及 scoped 子目录 `AGENTS.md` |
-| `worktree` | `skills/user/worktree/SKILL.md` | 用户级通用 | 为单个需求创建隔离 Git worktree 与任务分支 |
-| `harmonyos-performance-optimization` | `skills/harmonyos/harmonyos-performance-optimization/SKILL.md` | HarmonyOS 项目级 | 指导 HarmonyOS / OpenHarmony 应用性能分析、优化、验证 |
+| `apply-worktree` | `skills/apply-worktree/SKILL.md` | 用户级通用 | 将 worktree 开发内容合并回主项目分支，验证后清理 worktree 和任务分支 |
+| `auto-commit-push` | `skills/auto-commit-push/SKILL.md` | 用户级通用 | 安全提交当前任务相关改动并推送，处理 fetch / rebase / 分叉场景 |
+| `deeb-init` | `skills/deeb-init/SKILL.md` | 用户级通用 | 深度扫描项目并生成/刷新根目录及 scoped 子目录 `AGENTS.md` |
+| `karpathy-guidelines` | `skills/karpathy-guidelines/SKILL.md` | 用户级通用 | 减少 LLM 常见编码失误：先思考、保持简单、精准改动、目标驱动验证 |
+| `programming-standards` | `skills/programming-standards/SKILL.md` | 用户级通用 | 通用代码质量、命名、错误处理、测试性和 Review 标准 |
+| `worktree` | `skills/worktree/SKILL.md` | 用户级通用 | 为单个需求创建隔离 Git worktree 与任务分支 |
 
 ## 安装策略
 
 | 来源 | 安装级别 | 目标 |
 |---|---|---|
-| `skills/user/` | 用户级 | `~/.agents/skills/`、`~/.claude/skills/`、`~/.config/opencode/skills/`、`~/.cursor/skills/` |
-| `skills/harmonyos/` | 项目级 | 目标项目内 `.agents/skills/`、`.claude/skills/`、`.opencode/skills/`、`.cursor/rules/` |
+| `skills/` | 用户级 | `~/.agents/skills/`、`~/.claude/skills/`、`~/.config/opencode/skills/`、`~/.openclaw/skills/`、`~/.cursor/skills/` |
 
 安装入口：
 
 ```bash
 python scripts/install-user-skills.py
-bash scripts/install-project-harmonyos-skills.sh /path/to/harmonyos-project
 ```
 
 ## 修改同步规则
@@ -72,7 +67,7 @@ bash scripts/install-project-harmonyos-skills.sh /path/to/harmonyos-project
 当前仓库没有语言包管理器或自动化测试框架。修改后优先执行：
 
 ```bash
-bash -n scripts/*.sh
+python3 -m py_compile scripts/install-user-skills.py
 find skills -mindepth 2 -maxdepth 3 -name SKILL.md | sort
 find docs scripts skills -maxdepth 3 -type f | sort
 ```
@@ -83,4 +78,4 @@ find docs scripts skills -maxdepth 3 -type f | sort
 
 - 不要把 `.omx/` 运行态文件当作项目文档维护；它是本地会话状态。
 - `AGENTS.md` 为 OMX managed 文件，刷新时会保留 Local Notes；项目约定尽量写在 Local Notes 区块。
-- 用户级 Cursor 安装为完整 skill 目录树（`~/.cursor/skills/<skill>/`），源文件仍以 `SKILL.md` 为准。
+- 用户级 OpenClaw / Cursor 安装为完整 skill 目录树（`~/.openclaw/skills/<skill>/`、`~/.cursor/skills/<skill>/`），源文件仍以 `SKILL.md` 为准。

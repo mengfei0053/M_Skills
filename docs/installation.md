@@ -8,14 +8,9 @@
 
 | Skill 来源目录 | 安装级别 | 目标位置 | 适用场景 |
 |---|---|---|---|
-| `skills/user/` | 用户级别 | Agent 通用、Claude、OpenCode、Cursor 的用户配置目录 | 通用 Git / worktree / 自动提交等跨项目技能 |
-| `skills/harmonyos/` | 当前项目级别 | 当前项目内的 Agent / Claude / OpenCode / Cursor 配置目录 | 仅在 HarmonyOS / OpenHarmony 项目中启用 |
+| `skills/` | 用户级别 | Agent 通用、Claude、OpenCode、OpenClaw、Cursor 的用户配置目录 | 通用 Git / worktree / 自动提交等跨项目技能 |
 
-## 为什么要区分
-
-- `skills/user/` 是通用能力，适合安装到用户级别，所有项目都可以复用。
-- `skills/harmonyos/` 是技术栈专用能力，只应安装到当前 HarmonyOS 项目，避免污染非鸿蒙项目上下文。
-- 安装文档负责说明策略；安装命令负责提供可执行脚本和命令。
+M_Skills 现在只维护用户级通用 Skills。每个 Skill 直接位于 `skills/<skill-name>/SKILL.md`，不再使用旧的用户级分层目录或项目级技术栈安装目录。
 
 ## 前置条件
 
@@ -26,7 +21,7 @@
 | GitHub CLI `gh` | 脚本会按官方 Linux 包安装说明自动安装/检查，并用预览版 `gh skill` 进行本地 skill 安装 |
 | Node.js 18+ | 安装 `@playwright/cli` |
 | `npm` | 全局安装 `@playwright/cli` |
-| Claude / OpenCode / Cursor | 按需安装，脚本会写入对应配置目录 |
+| Agent / Claude / OpenCode / OpenClaw / Cursor | 按需安装，脚本会写入对应配置目录 |
 
 ## 克隆仓库
 
@@ -41,9 +36,7 @@ cd M_Skills
 M_Skills/
 ├── docs/             # 安装、使用与说明文档
 ├── scripts/          # 安装脚本与辅助脚本
-├── skills/           # Skill 文档
-│   ├── harmonyos/    # 安装到当前项目
-│   └── user/         # 安装到用户级别
+├── skills/           # 安装到用户级别的 Skill 文档
 └── templates/        # 配置模板
 ```
 
@@ -53,17 +46,16 @@ M_Skills/
 |---|---|
 | 安装用户级 Skills（本地仓库） | `python scripts/install-user-skills.py` |
 | 安装用户级 Skills（远程单文件） | `curl -fsSL https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main/scripts/install-user-skills.py \| python3` |
-| 安装 HarmonyOS Skills 到当前项目 | `bash scripts/install-project-harmonyos-skills.sh /path/to/project` |
 
-`install-user-skills.py` 在完成 `skills/user/` 直接文件同步后，还会：
+`install-user-skills.py` 在完成 `skills/` 直接文件同步后，还会：
 
 1. 按 [GitHub CLI 官方 Linux 安装说明](https://github.com/cli/cli/blob/trunk/docs/install_linux.md) 安装或检查 `gh`（Debian/Ubuntu `apt`、RPM `dnf`/`yum`、openSUSE `zypper`；非 Linux 平台提示手动安装）。
-2. 参考 [`gh skill`](https://cli.github.com/manual/gh_skill) 与 [`gh skill install`](https://cli.github.com/manual/gh_skill_install) 预览能力，用 `gh skill install <repo> skills/user/<skill>/SKILL.md --from-local --dir <target> --force` 将本仓库用户级 skills 安装到所选目标目录；若 `gh skill` 不可用，保留前一步直接文件同步结果并提示。
+2. 参考 [`gh skill`](https://cli.github.com/manual/gh_skill) 与 [`gh skill install`](https://cli.github.com/manual/gh_skill_install) 预览能力，用 `gh skill install <repo> skills/<skill>/SKILL.md --from-local --dir <target> --force` 将本仓库 skills 安装到所选目标目录；若 `gh skill` 不可用，保留前一步直接文件同步结果并提示。
 3. 全局安装 [@playwright/cli](https://github.com/microsoft/playwright-cli)，将 `playwright-cli` skill 复制到用户级 skills 目录，并执行 `playwright-cli install` 引导浏览器依赖；Linux 会预先使用 `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-<arch>` 避免 Ubuntu 26.04 ffmpeg 不支持报错。该步骤有 300 秒超时；如需完全跳过，可设置 `M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS=1`，脚本不会把 CLI 与 skill 安装标为失败。
 4. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 页面解析最新 `ima-skills` 压缩包地址并下载安装到用户级 skills 目录（含 `ima-skill` 完整目录树）。
 5. 交互提示输入 IMA **Client ID** 与 **API Key**，写入 `~/.config/ima/client_id` 与 `~/.config/ima/api_key`（已存在则跳过）。
 
-脚本开始时会交互选择安装目标（Agent / Claude / OpenCode / OpenClaw / Cursor Skill）。脚本会从脚本所在目录、当前工作目录及其父目录自动查找包含 `skills/user/` 的 M_Skills 仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/user/` 内容安装。可用 `M_SKILLS_REPO_DIR` 显式指定本地仓库根目录。
+脚本开始时会交互选择安装目标（Agent / Claude / OpenCode / OpenClaw / Cursor Skill）。脚本会从脚本所在目录、当前工作目录及其父目录自动查找包含 `skills/<skill>/SKILL.md` 的 M_Skills 仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/` 内容安装。可用 `M_SKILLS_REPO_DIR` 显式指定本地仓库根目录。
 
 非交互环境可通过环境变量预设，例如：
 
@@ -81,6 +73,7 @@ curl -fsSL https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/mai
 find ~/.agents/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.claude/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.config/opencode/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
+find ~/.openclaw/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 find ~/.cursor/skills -maxdepth 3 -name SKILL.md 2>/dev/null | sort
 command -v gh && gh --version
 command -v gh && gh skill --help | head -5
@@ -88,10 +81,4 @@ find ~/.agents/skills/playwright-cli -maxdepth 2 -name 'SKILL.md' 2>/dev/null | 
 command -v playwright-cli && playwright-cli --help | head -5
 find ~/.agents/skills/ima-skill -maxdepth 2 -name 'SKILL.md' 2>/dev/null | sort
 ls -la ~/.config/ima/ 2>/dev/null
-```
-
-项目级 HarmonyOS 安装可在目标项目中检查：
-
-```bash
-find .agents .claude .opencode .cursor -maxdepth 4 2>/dev/null | sort
 ```

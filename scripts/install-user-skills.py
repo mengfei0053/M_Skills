@@ -18,6 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.error import URLError
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 SUPPORTED_SYSTEMS = frozenset({"Windows", "Linux", "Darwin"})
@@ -28,8 +29,8 @@ GITHUB_CLI_SKILL_MANUAL_URL = "https://cli.github.com/manual/gh_skill"
 M_SKILLS_RAW_BASE_URL = (
     "https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main"
 )
-M_SKILLS_USER_CONTENTS_API_URL = (
-    "https://api.github.com/repos/mengfei0053/M_Skills/contents/skills/user?ref=main"
+M_SKILLS_CONTENTS_API_URL = (
+    "https://api.github.com/repos/mengfei0053/M_Skills/contents/skills?ref=main"
 )
 PLAYWRIGHT_CLI_REPO_URL = "https://github.com/microsoft/playwright-cli"
 IMA_AGENT_INTERFACE_URL = "https://ima.qq.com/agent-interface"
@@ -72,6 +73,15 @@ TARGET_ENV_VAR = "M_SKILLS_INSTALL_TARGETS"
 REPO_DIR_ENV_VAR = "M_SKILLS_REPO_DIR"
 SKIP_PLAYWRIGHT_BROWSERS_ENV_VAR = "M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS"
 PLAYWRIGHT_INSTALL_TIMEOUT_SECONDS = 300
+ALLOWED_DOWNLOAD_HOSTS = frozenset(
+    {
+        "api.github.com",
+        "raw.githubusercontent.com",
+        "ima.qq.com",
+        "static.ima.qq.com",
+        "app-dl.ima.qq.com",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -135,8 +145,12 @@ def home() -> Path:
     return Path.home()
 
 
-def has_user_skills_dir(path: Path) -> bool:
-    return (path / "skills" / "user").is_dir()
+def has_skills_dir(path: Path) -> bool:
+    skills_dir = path / "skills"
+    return skills_dir.is_dir() and any(
+        child.is_dir() and (child / "SKILL.md").is_file()
+        for child in skills_dir.iterdir()
+    )
 
 
 def candidate_repo_dirs() -> list[Path]:
@@ -164,16 +178,16 @@ def find_repo_dir(*, strict_env: bool = True) -> Path | None:
     env_value = os.environ.get(REPO_DIR_ENV_VAR, "").strip()
     if env_value:
         configured = Path(env_value).expanduser()
-        if has_user_skills_dir(configured):
+        if has_skills_dir(configured):
             return configured.resolve()
         if strict_env:
             raise FileNotFoundError(
-                f"{REPO_DIR_ENV_VAR} does not contain skills/user: {configured}"
+                f"{REPO_DIR_ENV_VAR} does not contain skills/<skill>/SKILL.md entries: {configured}"
             )
         return None
 
     for candidate in candidate_repo_dirs():
-        if has_user_skills_dir(candidate):
+        if has_skills_dir(candidate):
             return candidate
     return None
 
@@ -185,14 +199,14 @@ def repo_dir() -> Path:
 
     checked = ", ".join(format_path(path) for path in candidate_repo_dirs())
     raise FileNotFoundError(
-        "User skills directory not found. Run this script from the M_Skills repository, "
+        "Skills directory not found. Run this script from the M_Skills repository, "
         f"set {REPO_DIR_ENV_VAR}=/path/to/M_Skills, or run the official curl install path. "
         f"Checked: {checked}"
     )
 
 
-def user_skills_dir() -> Path:
-    return repo_dir() / "skills" / "user"
+def skills_dir() -> Path:
+    return repo_dir() / "skills"
 
 
 def ima_config_dir() -> Path:
@@ -214,7 +228,10 @@ def parse_target_keys(raw: str) -> set[str]:
         if not part:
             continue
         if part.isdigit():
-            index = int(part) - 1
+            try:
+                index = int(part) - 1
+            except ValueError as exc:
+                raise ValueError(f"invalid install target number: {part}") from exc
             options = target_options()
             if 0 <= index < len(options):
                 keys.add(options[index].key)
@@ -277,15 +294,33 @@ def check_platform() -> str:
     return system
 
 
+def validate_download_url(url: str) -> str:
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname not in ALLOWED_DOWNLOAD_HOSTS:
+        raise ValueError(f"Refusing to fetch untrusted URL: {url}")
+    return url
+
+
 def http_get_text(url: str) -> str:
-    request = Request(url, headers={"User-Agent": USER_AGENT})
-    with urlopen(request, timeout=60) as response:
+    safe_url = validate_download_url(url)
+    request = Request(
+        safe_url, headers={"User-Agent": USER_AGENT}
+    )  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+    with (
+        urlopen(request, timeout=60) as response
+    ):  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         return response.read().decode("utf-8", errors="replace")
 
 
 def http_download(url: str, dest: Path) -> None:
-    request = Request(url, headers={"User-Agent": USER_AGENT})
-    with urlopen(request, timeout=120) as response, dest.open("wb") as handle:
+    safe_url = validate_download_url(url)
+    request = Request(
+        safe_url, headers={"User-Agent": USER_AGENT}
+    )  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+    with (
+        urlopen(request, timeout=120) as response,
+        dest.open("wb") as handle,
+    ):  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         shutil.copyfileobj(response, handle)
 
 
@@ -356,10 +391,10 @@ def run_command(
     )
 
 
-def run_shell_command(
+def run_bash_command(
     command: str, *, check: bool = True
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, shell=True, check=check, text=True)
+    return subprocess.run(["bash", "-lc", command], check=check, text=True)
 
 
 def command_succeeds(args: list[str]) -> bool:
@@ -425,9 +460,14 @@ def install_skill_content(content: str, dest: Path) -> None:
 
 def install_skill_tree(src: Path, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    if dest.exists():
-        shutil.rmtree(dest)
-    shutil.copytree(src, dest)
+    try:
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(src, dest)
+    except OSError as exc:
+        raise RuntimeError(
+            f"Failed to install skill tree from {src} to {dest}: {exc}"
+        ) from exc
     print(f"installed: {dest}")
 
 
@@ -457,9 +497,12 @@ def install_repo_user_skills_from_local(
 
 
 def fetch_remote_user_skill_names() -> list[str]:
-    payload = json.loads(http_get_text(M_SKILLS_USER_CONTENTS_API_URL))
+    try:
+        payload = json.loads(http_get_text(M_SKILLS_CONTENTS_API_URL))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Invalid GitHub contents API response for skills") from exc
     if not isinstance(payload, list):
-        raise RuntimeError("Unexpected GitHub contents API response for skills/user")
+        raise RuntimeError("Unexpected GitHub contents API response for skills")
     skill_names = sorted(
         item["name"]
         for item in payload
@@ -468,19 +511,19 @@ def fetch_remote_user_skill_names() -> list[str]:
         and isinstance(item.get("name"), str)
     )
     if not skill_names:
-        raise RuntimeError("No remote user skills found in M_Skills")
+        raise RuntimeError("No remote skills found in M_Skills")
     return skill_names
 
 
 def fetch_remote_user_skill(skill_name: str) -> str:
-    return http_get_text(f"{M_SKILLS_RAW_BASE_URL}/skills/user/{skill_name}/SKILL.md")
+    return http_get_text(f"{M_SKILLS_RAW_BASE_URL}/skills/{skill_name}/SKILL.md")
 
 
 def install_repo_user_skills_from_remote(
     report: InstallReport, targets: set[str]
 ) -> None:
     print(
-        "Local skills/user directory not found; installing user skills from GitHub raw content."
+        "Local skills directory not found; installing user skills from GitHub raw content."
     )
     options = selected_target_options(targets)
     for skill_name in fetch_remote_user_skill_names():
@@ -502,7 +545,7 @@ def install_repo_user_skills(report: InstallReport, targets: set[str]) -> None:
     if root is None:
         install_repo_user_skills_from_remote(report, targets)
     else:
-        install_repo_user_skills_from_local(report, targets, root / "skills" / "user")
+        install_repo_user_skills_from_local(report, targets, root / "skills")
 
     print("User-level skills installation completed.")
 
@@ -573,7 +616,7 @@ def install_github_cli(report: InstallReport, system: str) -> bool:
     )
     try:
         if which("apt") is not None and which("dpkg") is not None:
-            run_shell_command(
+            run_bash_command(
                 f"(type -p wget >/dev/null || ({sudo}apt update && {sudo}apt install wget -y)) "
                 f"&& {sudo}mkdir -p -m 755 /etc/apt/keyrings "
                 "&& out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg "
@@ -638,8 +681,8 @@ def install_github_cli(report: InstallReport, system: str) -> bool:
             )
             report.tools["gh"] = "not found"
             return False
-    except subprocess.CalledProcessError:
-        print("Failed to install GitHub CLI (gh)", file=sys.stderr)
+    except subprocess.CalledProcessError as exc:
+        print(f"Failed to install GitHub CLI (gh): {exc}", file=sys.stderr)
         report.tools["gh"] = "not found"
         return False
 
@@ -680,7 +723,7 @@ def install_repo_user_skills_with_gh(report: InstallReport, targets: set[str]) -
     )
     ok = True
     for skill_name in report.repo_skills:
-        skill_path = f"skills/user/{skill_name}/SKILL.md"
+        skill_path = f"skills/{skill_name}/SKILL.md"
         for option in selected_target_options(targets):
             try:
                 run_command(
@@ -697,9 +740,9 @@ def install_repo_user_skills_with_gh(report: InstallReport, targets: set[str]) -
                     ]
                 )
                 print(f"gh skill installed: {option.label} / {skill_name}")
-            except subprocess.CalledProcessError:
+            except subprocess.CalledProcessError as exc:
                 print(
-                    f"Failed to install {skill_name} with gh skill for {option.label}",
+                    f"Failed to install {skill_name} with gh skill for {option.label}: {exc}",
                     file=sys.stderr,
                 )
                 ok = False
@@ -738,8 +781,8 @@ def install_playwright_cli_and_skills(report: InstallReport, targets: set[str]) 
     print(f"Installing @playwright/cli globally ({PLAYWRIGHT_CLI_REPO_URL}) ...")
     try:
         run_command(["npm", "install", "-g", "@playwright/cli@latest"])
-    except subprocess.CalledProcessError:
-        print("Failed to install @playwright/cli", file=sys.stderr)
+    except subprocess.CalledProcessError as exc:
+        print(f"Failed to install @playwright/cli: {exc}", file=sys.stderr)
         return False
 
     report.tools["node"] = which("node") or "not found"
@@ -798,20 +841,20 @@ def install_playwright_cli_and_skills(report: InstallReport, targets: set[str]) 
         report.tools["playwright browsers"] = (
             f"installed via {fallback} fallback" if fallback else "installed"
         )
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as exc:
         print(
             "Warning: playwright-cli install timed out after "
             f"{PLAYWRIGHT_INSTALL_TIMEOUT_SECONDS}s; CLI and skill are installed, "
             "but browser dependencies may be missing. Re-run manually or set "
-            f"{SKIP_PLAYWRIGHT_BROWSERS_ENV_VAR}=1 to skip this step.",
+            f"{SKIP_PLAYWRIGHT_BROWSERS_ENV_VAR}=1 to skip this step. ({exc})",
             file=sys.stderr,
         )
         report.tools["playwright browsers"] = "timed out/skipped"
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as exc:
         print(
             "Warning: playwright-cli install failed; CLI and skill are installed, "
             "but browser dependencies may be missing. Re-run manually or set "
-            f"{SKIP_PLAYWRIGHT_BROWSERS_ENV_VAR}=1 to skip this step.",
+            f"{SKIP_PLAYWRIGHT_BROWSERS_ENV_VAR}=1 to skip this step. ({exc})",
             file=sys.stderr,
         )
         report.tools["playwright browsers"] = "failed/skipped"
@@ -846,8 +889,8 @@ def install_ima_skills(report: InstallReport, targets: set[str]) -> bool:
         try:
             with zipfile.ZipFile(zip_path) as archive:
                 archive.extractall(tmp_dir)
-        except zipfile.BadZipFile:
-            print("Failed to extract IMA skills zip", file=sys.stderr)
+        except zipfile.BadZipFile as exc:
+            print(f"Failed to extract IMA skills zip: {exc}", file=sys.stderr)
             report.tree_skills["ima-skill"] = False
             return False
 
