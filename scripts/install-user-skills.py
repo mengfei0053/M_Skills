@@ -108,6 +108,7 @@ class InstallReport:
     installed_rows: list[tuple[str, str, str]] = field(default_factory=list)
     tools: dict[str, str] = field(default_factory=dict)
     ima_credentials_configured: bool = False
+    gh_token_configured: bool = False
 
 
 def agents_root() -> Path:
@@ -218,6 +219,14 @@ def skills_dir() -> Path:
 
 def ima_config_dir() -> Path:
     return home() / ".config" / "ima"
+
+
+def m_skill_auths_dir() -> Path:
+    return home() / ".config" / "m_skill_auths"
+
+
+def gh_token_file() -> Path:
+    return m_skill_auths_dir() / "gh_token"
 
 
 def parse_target_keys(raw: str) -> set[str]:
@@ -1209,6 +1218,105 @@ def prompt_non_empty(label: str, *, secret: bool = False) -> str:
         print("输入不能为空，请重新输入。")
 
 
+def github_cli_is_authenticated(gh_path: str) -> bool:
+    return command_succeeds([gh_path, "auth", "status"])
+
+
+def login_github_cli_with_token(token_path: Path) -> bool:
+    gh_path = which("gh")
+    if gh_path is None:
+        print(
+            "错误: 未找到 GitHub CLI `gh`，无法检测或执行 GitHub 登录。",
+            file=sys.stderr,
+        )
+        return False
+
+    if github_cli_is_authenticated(gh_path):
+        print("GitHub CLI 已登录，跳过 `gh auth login --with-token`。")
+        return True
+
+    try:
+        with token_path.open("r", encoding="utf-8") as token_handle:
+            result = subprocess.run(
+                [gh_path, "auth", "login", "--with-token"],
+                stdin=token_handle,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=60,
+            )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(f"错误: 无法执行 `gh auth login --with-token`: {exc}", file=sys.stderr)
+        return False
+
+    if result.returncode != 0:
+        stderr = result.stderr.strip() or "unknown error"
+        print(f"错误: `gh auth login --with-token` 执行失败: {stderr}", file=sys.stderr)
+        return False
+
+    print("GitHub CLI 已通过 ~/.config/m_skill_auths/gh_token 登录。")
+    return True
+
+
+def export_github_token_from_bitwarden(report: InstallReport) -> bool:
+    bw_path = which("bw")
+    if bw_path is None:
+        print(
+            "错误: 未找到 Bitwarden CLI `bw`，无法导出 GitHub token。", file=sys.stderr
+        )
+        return False
+
+    bw_session = os.environ.get("BW_SESSION", "").strip()
+    if not bw_session:
+        print(
+            "错误: BW_SESSION 未设置，无法从 Bitwarden 读取 github_gh_token。",
+            file=sys.stderr,
+        )
+        print(
+            "请先运行 `export BW_SESSION=$(bw unlock --raw)`，再重新执行本脚本。",
+            file=sys.stderr,
+        )
+        return False
+
+    try:
+        result = subprocess.run(
+            [bw_path, "get", "password", "github_gh_token", "--session", bw_session],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(f"错误: 无法从 Bitwarden 读取 GitHub token: {exc}", file=sys.stderr)
+        return False
+
+    if result.returncode != 0:
+        stderr = result.stderr.strip() or "unknown error"
+        print(
+            f"错误: `bw get password github_gh_token` 执行失败: {stderr}",
+            file=sys.stderr,
+        )
+        return False
+
+    token = result.stdout.strip()
+    if not token:
+        print(
+            "错误: Bitwarden 条目 github_gh_token 的 password 为空。", file=sys.stderr
+        )
+        return False
+
+    token_path = gh_token_file()
+    secure_dir(token_path.parent)
+    secure_write(token_path, token + "\n")
+    print(f"GitHub token 已写入: {token_path}")
+
+    if not login_github_cli_with_token(token_path):
+        return False
+
+    report.gh_token_configured = True
+    return True
+
+
 def prompt_ima_api_credentials(report: InstallReport) -> bool:
     if not require_interactive_terminal():
         return False
@@ -1316,6 +1424,18 @@ def print_install_summary(report: InstallReport) -> None:
         ],
     )
 
+    auth_dir = m_skill_auths_dir()
+    gh_token_status = "已配置" if report.gh_token_configured else "未配置"
+    render_table(
+        "M_Skills Auths",
+        ["项目", "路径 / 状态"],
+        [
+            ["凭证目录", format_path(auth_dir)],
+            ["GitHub token", format_path(gh_token_file())],
+            ["配置状态", gh_token_status],
+        ],
+    )
+
     print("=" * 72)
 
 
@@ -1365,6 +1485,10 @@ def main() -> int:
         )
 
     if not prompt_ima_api_credentials(report):
+        print_install_summary(report)
+        return 1
+
+    if not export_github_token_from_bitwarden(report):
         print_install_summary(report)
         return 1
 

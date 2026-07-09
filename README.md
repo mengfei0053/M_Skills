@@ -44,6 +44,7 @@ Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`
 3. 检查/安装 [GitLab CLI `glab`](https://gitlab.com/gitlab-org/cli/-/releases)：macOS 通过 Homebrew，Linux / Windows 从最新 release 下载匹配安装包。
 4. 从 [playwright-cli](https://github.com/microsoft/playwright-cli) 全局安装 `@playwright/cli`，并将 `playwright-cli` skill 同步到用户级 skills 目录。
 5. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 安装官方 `ima-skill`，并提示配置 IMA Client ID / API Key（写入 `~/.config/ima/`）。
+6. 安装完成后使用 `BW_SESSION` 从 Bitwarden 读取 `github_gh_token`，写入 `~/.config/m_skill_auths/gh_token`；如果 `gh` 未登录，则执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`。
 
 更多说明见：
 
@@ -139,4 +140,6 @@ command -v bw && bw status --raw
 command -v gh && gh --version
 command -v gh && gh skill --help | head -5
 command -v glab && glab --version
+gh auth status
+ls -la ~/.config/m_skill_auths/ 2>/dev/null
 ```

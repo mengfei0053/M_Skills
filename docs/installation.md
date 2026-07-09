@@ -59,8 +59,9 @@ M_Skills/
 4. 全局安装 [@playwright/cli](https://github.com/microsoft/playwright-cli)，将 `playwright-cli` skill 复制到用户级 skills 目录，并执行 `playwright-cli install` 引导浏览器依赖；Linux 会预先使用 `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-<arch>` 避免 Ubuntu 26.04 ffmpeg 不支持报错。该步骤有 300 秒超时；如需完全跳过，可设置 `M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS=1`，脚本不会把 CLI 与 skill 安装标为失败。
 5. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 页面解析最新 `ima-skills` 压缩包地址并下载安装到用户级 skills 目录（含 `ima-skill` 完整目录树）。
 6. 交互提示输入 IMA **Client ID** 与 **API Key**，写入 `~/.config/ima/client_id` 与 `~/.config/ima/api_key`（已存在则跳过）。
+7. 安装完成后执行 `bw get password github_gh_token --session "$BW_SESSION"`，将 GitHub token 写入 `~/.config/m_skill_auths/gh_token`；如果 `gh auth status` 显示未登录，则执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`。
 
-脚本开始时会交互选择安装目标（Agent / Claude / OpenCode / OpenClaw / Cursor Skill）。脚本会从脚本所在目录、当前工作目录及其父目录自动查找包含 `skills/<skill>/SKILL.md` 的 M_Skills 仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/` 内容安装。可用 `M_SKILLS_REPO_DIR` 显式指定本地仓库根目录。
+脚本开始时会交互选择安装目标（Agent / Claude / OpenCode / OpenClaw / Cursor Skill）。脚本会从脚本所在目录、当前工作目录及其父目录自动查找包含 `skills/<skill>/SKILL.md` 的 M_Skills 仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/` 内容安装。可用 `M_SKILLS_REPO_DIR` 显式指定本地仓库根目录。读取 GitHub token 前需要先设置 `BW_SESSION`，例如 `export BW_SESSION=$(bw unlock --raw)`。
 
 非交互环境可通过环境变量预设，例如：
 
@@ -84,6 +85,8 @@ command -v bw && bw status --raw
 command -v gh && gh --version
 command -v gh && gh skill --help | head -5
 command -v glab && glab --version
+gh auth status
+ls -la ~/.config/m_skill_auths/ 2>/dev/null
 find ~/.agents/skills/playwright-cli -maxdepth 2 -name 'SKILL.md' 2>/dev/null | sort
 command -v playwright-cli && playwright-cli --help | head -5
 find ~/.agents/skills/ima-skill -maxdepth 2 -name 'SKILL.md' 2>/dev/null | sort

@@ -15,7 +15,9 @@
 7. 全局安装 `@playwright/cli`，同步 `playwright-cli` skill，并引导安装 Playwright 浏览器依赖。
 8. 从 IMA agent-interface 下载并安装官方 `ima-skill`。
 9. 交互写入 IMA Client ID / API Key 到 `~/.config/ima/`。
-10. 打印安装摘要，包括工具状态、安装明细和 IMA 凭证路径。
+10. 安装完成后通过 `bw get password github_gh_token --session "$BW_SESSION"` 读取 GitHub token，写入 `~/.config/m_skill_auths/gh_token`。
+11. 如果 `gh` 尚未登录，通过 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token` 完成登录。
+12. 打印安装摘要，包括工具状态、安装明细和凭证路径。
 
 ## 前置条件
 
@@ -78,6 +80,7 @@ curl -fsSL https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/mai
 | `M_SKILLS_INSTALL_TARGETS` | 跳过交互选择，指定安装目标；支持逗号或空格分隔，也支持 `all` | `agent,claude,cursor_skill` |
 | `M_SKILLS_REPO_DIR` | 显式指定 M_Skills 仓库根目录 | `/path/to/M_Skills` |
 | `M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS` | 跳过 `playwright-cli install` 浏览器依赖安装 | `1` |
+| `BW_SESSION` | Bitwarden 解锁会话；用于读取 `github_gh_token` | `$(bw unlock --raw)` |
 
 示例：
 
@@ -85,6 +88,8 @@ curl -fsSL https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/mai
 M_SKILLS_INSTALL_TARGETS=agent,claude python3 scripts/install-user-skills.py
 M_SKILLS_REPO_DIR=/path/to/M_Skills M_SKILLS_INSTALL_TARGETS=agent python3 /path/to/install-user-skills.py
 M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS=1 python3 scripts/install-user-skills.py
+export BW_SESSION=$(bw unlock --raw)
+python3 scripts/install-user-skills.py
 ```
 
 ## 本地仓库发现逻辑
@@ -122,6 +127,8 @@ M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS=1 python3 scripts/install-user-skills.py
 | Playwright 浏览器依赖 | 执行 `playwright-cli install` | 是，可用 `M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS=1` 跳过 | 超时或失败时仅记录警告；CLI 与 skill 已安装时仍视为可继续 |
 | IMA Skill `ima-skill` | 访问 IMA agent-interface，解析并下载官方 `ima-skills` zip | 是，下载并复制 skill 目录 | 下载、解析或解压失败时记录失败并提示后续手动修复 |
 | IMA 凭证目录 | 检查 `~/.config/ima/client_id` 与 `~/.config/ima/api_key` 是否已存在且非空 | 部分自动：创建目录和文件，但凭证需用户输入 | 非交互环境无法输入时打印摘要并以非零状态退出 |
+| GitHub token 文件 | 用 `bw get password github_gh_token --session "$BW_SESSION"` 读取并写入 `~/.config/m_skill_auths/gh_token` | 是，依赖已设置的 `BW_SESSION` | `BW_SESSION` 缺失、Bitwarden 条目缺失或 token 为空时停止并提示修复 |
+| GitHub CLI 登录 | `gh auth status` | 仅未登录时自动登录 | 未登录时执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`；失败则停止 |
 
 ## 外部依赖行为
 
@@ -140,6 +147,8 @@ M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS=1 python3 scripts/install-user-skills.py
 - 非 Linux 平台不会自动安装 `gh`，只会提示用户手动安装。
 - 如果 `gh skill --help` 可用，脚本会额外尝试 `gh skill install --from-local`。
 - 即使 `gh skill` 不可用，直接文件复制安装结果仍会保留。
+- 安装完成后，脚本会从 Bitwarden 条目 `github_gh_token` 读取 token，写入 `~/.config/m_skill_auths/gh_token`。
+- 如果 `gh auth status` 显示未登录，脚本会执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`。
 
 ### GitLab CLI
 
@@ -193,6 +202,8 @@ command -v gh && gh --version
 command -v glab && glab --version
 command -v playwright-cli && playwright-cli --help | head -5
 ls -la ~/.config/ima/ 2>/dev/null
+ls -la ~/.config/m_skill_auths/ 2>/dev/null
+gh auth status
 ```
 
 ## 维护与测试
