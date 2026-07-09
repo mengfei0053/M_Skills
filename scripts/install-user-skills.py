@@ -78,6 +78,7 @@ USER_AGENT = "M_Skills-install-user-skills/1.0"
 TARGET_ENV_VAR = "M_SKILLS_INSTALL_TARGETS"
 REPO_DIR_ENV_VAR = "M_SKILLS_REPO_DIR"
 SKIP_PLAYWRIGHT_BROWSERS_ENV_VAR = "M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS"
+GITLAB_HOST_ENV_VAR = "M_SKILLS_GITLAB_HOST"
 PLAYWRIGHT_INSTALL_TIMEOUT_SECONDS = 300
 ALLOWED_DOWNLOAD_HOSTS = frozenset(
     {
@@ -109,6 +110,7 @@ class InstallReport:
     tools: dict[str, str] = field(default_factory=dict)
     ima_credentials_configured: bool = False
     gh_token_configured: bool = False
+    glab_token_configured: bool = False
 
 
 def agents_root() -> Path:
@@ -229,8 +231,18 @@ def gh_token_file() -> Path:
     return m_skill_auths_dir() / "gh_token"
 
 
+def glab_token_file() -> Path:
+    return m_skill_auths_dir() / "glab_token"
+
+
 def bw_session_file() -> Path:
     return m_skill_auths_dir() / "bw_session"
+
+
+def redacted_secret(value: str, *, visible: int = 6) -> str:
+    if len(value) <= visible * 2:
+        return "*" * len(value)
+    return f"{value[:visible]}...{value[-visible:]}"
 
 
 def persist_bw_session(session: str) -> None:
@@ -351,12 +363,52 @@ def http_get_text(url: str) -> str:
         return response.read().decode("utf-8", errors="replace")
 
 
+def format_bytes(size: int) -> str:
+    units = ["B", "KiB", "MiB", "GiB"]
+    try:
+        value = float(size)
+    except (TypeError, ValueError):
+        return "unknown size"
+    for unit in units:
+        if value < 1024 or unit == units[-1]:
+            return f"{value:.1f} {unit}" if unit != "B" else f"{size} B"
+        value /= 1024
+    return f"{size} B"
+
+
+def render_download_progress(label: str, downloaded: int, total: int | None) -> None:
+    if total and total > 0:
+        percent = downloaded / total * 100
+        message = (
+            f"Downloading {label}: {format_bytes(downloaded)} / "
+            f"{format_bytes(total)} ({percent:.1f}%)"
+        )
+    else:
+        message = f"Downloading {label}: {format_bytes(downloaded)}"
+    print(f"\r{message}", end="", flush=True)
+
+
 def http_download(url: str, dest: Path) -> None:
     safe_url = validate_download_url(url)
     request = Request(safe_url, headers={"User-Agent": USER_AGENT})
+    print(f"Downloading: {safe_url}")
     # nosemgrep: URL was validated by validate_download_url() before this call.
     with urlopen(request, timeout=120) as response, dest.open("wb") as handle:
-        shutil.copyfileobj(response, handle)
+        total_header = response.headers.get("Content-Length")
+        try:
+            total = int(total_header) if total_header else None
+        except ValueError:
+            total = None
+        downloaded = 0
+        label = dest.name
+        while True:
+            chunk = response.read(1024 * 256)
+            if not chunk:
+                break
+            handle.write(chunk)
+            downloaded += len(chunk)
+            render_download_progress(label, downloaded, total)
+    print(f"\nDownloaded {dest}: {format_bytes(downloaded)}")
 
 
 def secure_write(path: Path, content: str) -> None:
@@ -504,7 +556,8 @@ def unlock_bitwarden_vault(bw_path: str) -> bool:
         return False
 
     persist_bw_session(session)
-    print(f"Bitwarden vault 已解锁，session 已写入: {bw_session_file()}")
+    print(f"Bitwarden unlock 返回的 session（脱敏）: {redacted_secret(session)}")
+    print(f"Bitwarden vault 已解锁，完整 session 已写入: {bw_session_file()}")
     print("BW_SESSION 已设置到当前安装进程，后续 Bitwarden 读取会自动复用。")
     return True
 
@@ -1353,6 +1406,35 @@ def prompt_non_empty(label: str, *, secret: bool = False) -> str:
         print("输入不能为空，请重新输入。")
 
 
+def prompt_line_with_tty(label: str, default: str = "") -> str:
+    if sys.stdin.isatty():
+        value = input(label).strip()
+        return value or default
+
+    if os.name != "nt":
+        try:
+            print(label, end="", flush=True)
+            with Path("/dev/tty").open("r", encoding="utf-8") as tty_input:
+                value = tty_input.readline().strip()
+            return value or default
+        except OSError as exc:
+            print(f"无法打开 /dev/tty 读取输入: {exc}", file=sys.stderr)
+
+    return default
+
+
+def prompt_yes_no_with_tty(question: str, *, default: bool = False) -> bool:
+    suffix = "[Y/n]" if default else "[y/N]"
+    default_text = "y" if default else "n"
+    answer = prompt_line_with_tty(f"{question} {suffix}: ", default_text).lower()
+    return answer in {"y", "yes", "是"}
+
+
+def prompt_gitlab_hostname() -> str:
+    default_host = os.environ.get(GITLAB_HOST_ENV_VAR, "").strip() or "gitlab.com"
+    return prompt_line_with_tty(f"GitLab hostname [{default_host}]: ", default_host)
+
+
 def github_cli_is_authenticated(gh_path: str) -> bool:
     return command_succeeds([gh_path, "auth", "status"])
 
@@ -1393,6 +1475,69 @@ def login_github_cli_with_token(token_path: Path) -> bool:
     return True
 
 
+def gitlab_cli_is_authenticated(glab_path: str, hostname: str) -> bool:
+    return command_succeeds([glab_path, "auth", "status", "--hostname", hostname])
+
+
+def login_gitlab_cli_with_token(token_path: Path, hostname: str) -> bool:
+    glab_path = which("glab")
+    if glab_path is None:
+        print(
+            "错误: 未找到 GitLab CLI `glab`，无法检测或执行 GitLab 登录。",
+            file=sys.stderr,
+        )
+        return False
+
+    if gitlab_cli_is_authenticated(glab_path, hostname):
+        print(f"GitLab CLI 已登录 {hostname}，跳过 `glab auth login --stdin`。")
+        return True
+
+    try:
+        with token_path.open("r", encoding="utf-8") as token_handle:
+            result = subprocess.run(
+                [glab_path, "auth", "login", "--hostname", hostname, "--stdin"],
+                stdin=token_handle,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=60,
+            )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(f"错误: 无法执行 `glab auth login --stdin`: {exc}", file=sys.stderr)
+        return False
+
+    if result.returncode != 0:
+        stderr = result.stderr.strip() or "unknown error"
+        print(f"错误: `glab auth login --stdin` 执行失败: {stderr}", file=sys.stderr)
+        return False
+
+    print(f"GitLab CLI 已通过 ~/.config/m_skill_auths/glab_token 登录 {hostname}。")
+    return True
+
+
+def sync_bitwarden_vault(bw_path: str, bw_session: str) -> bool:
+    print("正在执行 `bw sync` 同步 Bitwarden vault ...")
+    try:
+        result = subprocess.run(
+            [bw_path, "sync", "--session", bw_session],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=120,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(f"错误: 无法执行 `bw sync`: {exc}", file=sys.stderr)
+        return False
+
+    if result.returncode != 0:
+        stderr = result.stderr.strip() or "unknown error"
+        print(f"错误: `bw sync` 执行失败: {stderr}", file=sys.stderr)
+        return False
+
+    print("Bitwarden vault 同步完成。")
+    return True
+
+
 def export_github_token_from_bitwarden(report: InstallReport) -> bool:
     bw_path = which("bw")
     if bw_path is None:
@@ -1416,6 +1561,9 @@ def export_github_token_from_bitwarden(report: InstallReport) -> bool:
             "错误: BW_SESSION 仍为空，无法从 Bitwarden 读取 github_gh_token。",
             file=sys.stderr,
         )
+        return False
+
+    if not sync_bitwarden_vault(bw_path, bw_session):
         return False
 
     try:
@@ -1442,6 +1590,8 @@ def export_github_token_from_bitwarden(report: InstallReport) -> bool:
         if not ensure_bw_session(bw_path, force_unlock=True):
             return False
         bw_session = os.environ.get("BW_SESSION", "").strip()
+        if not sync_bitwarden_vault(bw_path, bw_session):
+            return False
         result = subprocess.run(
             [bw_path, "get", "password", "github_gh_token", "--session", bw_session],
             capture_output=True,
@@ -1473,6 +1623,94 @@ def export_github_token_from_bitwarden(report: InstallReport) -> bool:
         return False
 
     report.gh_token_configured = True
+    return True
+
+
+def export_gitlab_token_from_bitwarden(report: InstallReport, hostname: str) -> bool:
+    bw_path = which("bw")
+    if bw_path is None:
+        print(
+            "错误: 未找到 Bitwarden CLI `bw`，无法导出 GitLab token。", file=sys.stderr
+        )
+        return False
+
+    bw_session = os.environ.get("BW_SESSION", "").strip()
+    if not bw_session:
+        if not ensure_bw_session(bw_path):
+            print(
+                "错误: 无法获取 BW_SESSION，无法从 Bitwarden 读取 gitlab_glab_token。",
+                file=sys.stderr,
+            )
+            return False
+        bw_session = os.environ.get("BW_SESSION", "").strip()
+
+    if not bw_session:
+        print(
+            "错误: BW_SESSION 仍为空，无法从 Bitwarden 读取 gitlab_glab_token。",
+            file=sys.stderr,
+        )
+        return False
+
+    if not sync_bitwarden_vault(bw_path, bw_session):
+        return False
+
+    try:
+        result = subprocess.run(
+            [bw_path, "get", "password", "gitlab_glab_token", "--session", bw_session],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(f"错误: 无法从 Bitwarden 读取 GitLab token: {exc}", file=sys.stderr)
+        return False
+
+    if result.returncode != 0:
+        stderr = result.stderr.strip() or "unknown error"
+        print(
+            f"警告: `bw get password gitlab_glab_token` 执行失败: {stderr}",
+            file=sys.stderr,
+        )
+        print(
+            "尝试重新执行 `bw unlock --raw` 后再次读取 GitLab token。", file=sys.stderr
+        )
+        if not ensure_bw_session(bw_path, force_unlock=True):
+            return False
+        bw_session = os.environ.get("BW_SESSION", "").strip()
+        if not sync_bitwarden_vault(bw_path, bw_session):
+            return False
+        result = subprocess.run(
+            [bw_path, "get", "password", "gitlab_glab_token", "--session", bw_session],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            stderr = result.stderr.strip() or "unknown error"
+            print(
+                f"错误: `bw get password gitlab_glab_token` 重试失败: {stderr}",
+                file=sys.stderr,
+            )
+            return False
+
+    token = result.stdout.strip()
+    if not token:
+        print(
+            "错误: Bitwarden 条目 gitlab_glab_token 的 password 为空。", file=sys.stderr
+        )
+        return False
+
+    token_path = glab_token_file()
+    secure_dir(token_path.parent)
+    secure_write(token_path, token + "\n")
+    print(f"GitLab token 已写入: {token_path}")
+
+    if not login_gitlab_cli_with_token(token_path, hostname):
+        return False
+
+    report.glab_token_configured = True
     return True
 
 
@@ -1585,6 +1823,7 @@ def print_install_summary(report: InstallReport) -> None:
 
     auth_dir = m_skill_auths_dir()
     gh_token_status = "已配置" if report.gh_token_configured else "未配置"
+    glab_token_status = "已配置" if report.glab_token_configured else "未配置"
     render_table(
         "M_Skills Auths",
         ["项目", "路径 / 状态"],
@@ -1592,7 +1831,9 @@ def print_install_summary(report: InstallReport) -> None:
             ["凭证目录", format_path(auth_dir)],
             ["Bitwarden session", format_path(bw_session_file())],
             ["GitHub token", format_path(gh_token_file())],
-            ["配置状态", gh_token_status],
+            ["GitLab token", format_path(glab_token_file())],
+            ["GitHub 配置状态", gh_token_status],
+            ["GitLab 配置状态", glab_token_status],
         ],
     )
 
@@ -1651,6 +1892,16 @@ def main() -> int:
     if not export_github_token_from_bitwarden(report):
         print_install_summary(report)
         return 1
+
+    if prompt_yes_no_with_tty(
+        "是否使用 Bitwarden 中的 gitlab_glab_token 登录 GitLab CLI (glab)?"
+    ):
+        hostname = prompt_gitlab_hostname()
+        if not export_gitlab_token_from_bitwarden(report, hostname):
+            print_install_summary(report)
+            return 1
+    else:
+        print("已跳过 GitLab CLI (glab) 登录。")
 
     print_install_summary(report)
     return 0

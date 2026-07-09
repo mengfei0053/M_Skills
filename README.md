@@ -35,7 +35,7 @@ python scripts/install-user-skills.py
 curl -fsSL https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/main/scripts/install-user-skills.py | python3
 ```
 
-Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`。脚本要求已安装并登录 Bitwarden CLI `bw`；未安装时请从 <https://github.com/bitwarden/clients/releases> 下载，安装后运行 `bw login`。如果 Bitwarden vault 是 `locked`，脚本会自动执行 `bw unlock --raw`，让用户输入主密码，把返回的 session 写入 `~/.config/m_skill_auths/bw_session`，并设置当前安装进程的 `BW_SESSION`。脚本会自动查找包含 `skills/<skill>/SKILL.md` 的仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/` 内容安装；也可设置 `M_SKILLS_REPO_DIR=/path/to/M_Skills` 显式指定本地仓库。
+Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`。脚本要求已安装并登录 Bitwarden CLI `bw`；未安装时请从 <https://github.com/bitwarden/clients/releases> 下载，安装后运行 `bw login`。如果 Bitwarden vault 是 `locked`，脚本会自动执行 `bw unlock --raw`，让用户输入主密码，打印脱敏后的 session 预览，把完整 session 写入 `~/.config/m_skill_auths/bw_session`，并设置当前安装进程的 `BW_SESSION`。脚本会自动查找包含 `skills/<skill>/SKILL.md` 的仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/` 内容安装；也可设置 `M_SKILLS_REPO_DIR=/path/to/M_Skills` 显式指定本地仓库。
 
 脚本末尾还会：
 
@@ -44,7 +44,8 @@ Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`
 3. 检查/安装 [GitLab CLI `glab`](https://gitlab.com/gitlab-org/cli/-/releases)：macOS 通过 Homebrew，Linux / Windows 从最新 release 下载匹配安装包。
 4. 从 [playwright-cli](https://github.com/microsoft/playwright-cli) 全局安装 `@playwright/cli`，并将 `playwright-cli` skill 同步到用户级 skills 目录。
 5. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 安装官方 `ima-skill`，并提示配置 IMA Client ID / API Key（写入 `~/.config/ima/`）。
-6. 安装完成后使用 `BW_SESSION` 从 Bitwarden 读取 `github_gh_token`，写入 `~/.config/m_skill_auths/gh_token`；如果 `gh` 未登录，则执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`。
+6. 安装完成后先执行 `bw sync --session "$BW_SESSION"` 同步 Bitwarden vault，再使用 `BW_SESSION` 读取 `github_gh_token`，写入 `~/.config/m_skill_auths/gh_token`；如果 `gh` 未登录，则执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`。
+7. 询问是否登录 GitLab CLI；如果用户选择登录，则从 Bitwarden 读取 `gitlab_glab_token`，写入 `~/.config/m_skill_auths/glab_token`，并执行 `glab auth login --hostname <host> --stdin < ~/.config/m_skill_auths/glab_token`。
 
 ## 安装软件清单
 
@@ -61,6 +62,8 @@ Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`
 | Playwright CLI `playwright-cli` | 浏览器自动化工具及对应 skill 来源 | 是 | `npm install -g @playwright/cli@latest` |
 | Playwright 浏览器依赖 | Playwright 运行所需浏览器与依赖 | 是，可跳过 | `playwright-cli install`；可设置 `M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS=1` 跳过 |
 | IMA Skill `ima-skill` | IMA 笔记和知识库 OpenAPI skill | 是 | 从 <https://ima.qq.com/agent-interface> 解析官方 zip 并安装 |
+
+脚本执行下载时会显示下载 URL、目标文件名、已下载大小和百分比（如果服务端返回总大小）。
 
 更多说明见：
 
@@ -160,4 +163,6 @@ gh auth status
 ls -la ~/.config/m_skill_auths/ 2>/dev/null
 test -s ~/.config/m_skill_auths/bw_session && echo bw_session configured
 test -s ~/.config/m_skill_auths/gh_token && echo gh_token configured
+test -s ~/.config/m_skill_auths/glab_token && echo glab_token configured
+glab auth status 2>/dev/null || true
 ```
