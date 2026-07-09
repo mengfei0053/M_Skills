@@ -43,13 +43,14 @@ Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`
 
 脚本末尾还会：
 
-1. 安装/检查 [`gh`](https://cli.github.com/)：macOS 通过 `brew install gh`，Linux 按 GitHub CLI 官方包安装说明安装，Windows 提示手动安装。
-2. 参考 [`gh skill`](https://cli.github.com/manual/gh_skill) 预览能力，用 `gh skill install --from-local --dir ... --force` 将本仓库 skills 安装到所选目标目录（直接文件复制仍作为基础安装路径）。
-3. 检查/安装 [GitLab CLI `glab`](https://gitlab.com/gitlab-org/cli/-/releases)：macOS 通过 Homebrew，Linux / Windows 从最新 release 下载匹配安装包。
-4. 从 [playwright-cli](https://github.com/microsoft/playwright-cli) 全局安装 `@playwright/cli`，并将 `playwright-cli` skill 同步到用户级 skills 目录。
-5. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 安装官方 `ima-skill`，并可选配置 IMA Client ID / API Key（直接回车或无可用 TTY 时跳过，已配置时写入 `~/.config/ima/`）。
-6. 安装完成后先检查 `gh auth status`；如果 GitHub CLI 已登录，跳过 `bw sync`、读取 `github_gh_token`、写入 `~/.config/m_skill_auths/gh_token` 和 `gh auth login`。仅未登录时才通过 `BW_SESSION` 同步 Bitwarden vault，读取并写入 GitHub token 后登录 `gh`。
-7. 询问是否登录 GitLab CLI；如果用户选择登录，先检查 `glab auth status --hostname <host>`；如果目标 GitLab 已登录，跳过 `bw sync`、读取 `gitlab_glab_token`、写入 `~/.config/m_skill_auths/glab_token` 和 `glab auth login`。仅未登录时才从 Bitwarden 读取 token，并执行 `glab auth login --hostname <host> --api-protocol <http|https> --stdin < ~/.config/m_skill_auths/glab_token`。`host` 填裸主机名或 `host:port`，不要带 `http://` / `https://`。
+1. 安装/检查 [`gh`](https://cli.github.com/)：已存在则跳过；macOS 通过 `brew install gh`，Linux 按 GitHub CLI 官方包安装说明安装，Windows 提示手动安装。
+2. 参考 [`gh skill`](https://cli.github.com/manual/gh_skill) 预览能力，用 `gh skill install --from-local --dir ... --force` 将本仓库 skills 安装到所选目标目录；目标内容已一致则跳过（直接文件复制仍作为基础安装路径）。
+3. 检查/安装 [GitLab CLI `glab`](https://gitlab.com/gitlab-org/cli/-/releases)：已存在则跳过；macOS 通过 Homebrew，Linux / Windows 从最新 release 下载匹配安装包。
+4. 检查/安装 ZenTao CLI `zentao`：已存在则跳过；未安装时通过 `bun install -g zentao-cli` 安装。
+5. 检查/安装 [playwright-cli](https://github.com/microsoft/playwright-cli)：`playwright-cli` 已存在则跳过全局 npm 安装；对应 skill 已存在则跳过复制；仅首次安装 CLI 时引导浏览器依赖。
+6. 检查/安装 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 官方 `ima-skill`：所选目标已存在则跳过下载；并可选配置 IMA Client ID / API Key（直接回车或无可用 TTY 时跳过，已配置时写入 `~/.config/ima/`）。
+7. 安装完成后先检查 `gh auth status`；如果 GitHub CLI 已登录，跳过 `bw sync`、读取 `github_gh_token`、写入 `~/.config/m_skill_auths/gh_token` 和 `gh auth login`。仅未登录时才通过 `BW_SESSION` 同步 Bitwarden vault，读取并写入 GitHub token 后登录 `gh`。
+8. 询问是否登录 GitLab CLI；如果用户选择登录，先检查 `glab auth status --hostname <host>`；如果目标 GitLab 已登录，跳过 `bw sync`、读取 `gitlab_glab_token`、写入 `~/.config/m_skill_auths/glab_token` 和 `glab auth login`。仅未登录时才从 Bitwarden 读取 token，并执行 `glab auth login --hostname <host> --api-protocol <http|https> --stdin < ~/.config/m_skill_auths/glab_token`。`host` 填裸主机名或 `host:port`，不要带 `http://` / `https://`。
 
 ## 安装软件清单
 
@@ -61,11 +62,13 @@ Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`
 | GitHub CLI `gh` | GitHub 认证、`gh skill install` 辅助安装 | macOS / Linux 自动安装；Windows 提示手动安装 | macOS 用 `brew install gh`；Linux 按 GitHub CLI 官方包安装说明；Windows 需用户自行安装 |
 | `gh skill` 子命令 | 使用 GitHub CLI skill 机制安装本仓库 skills | 否 | 已随支持该命令的 `gh` 提供；不可用时跳过 |
 | GitLab CLI `glab` | GitLab 命令行工具 | 是 | macOS 用 `brew install glab`；Linux / Windows 从 GitLab 最新 release 下载匹配安装包 |
+| Bun `bun` | 安装 ZenTao CLI 的运行时前置条件 | 否 | 用户自行安装 Bun；缺失时跳过 ZenTao CLI 自动安装并提示 |
+| ZenTao CLI `zentao` | 禅道命令行工具 | 是 | 已存在则跳过；未安装时执行 `bun install -g zentao-cli` |
 | Node.js `node` | 安装 Playwright CLI 的运行时前置条件 | 否 | 用户自行安装 Node.js 18+ |
 | npm | 全局安装 `@playwright/cli` | 否 | 通常随 Node.js 安装；缺失时用户自行安装 |
-| Playwright CLI `playwright-cli` | 浏览器自动化工具及对应 skill 来源 | 是 | `npm install -g @playwright/cli@latest` |
-| Playwright 浏览器依赖 | Playwright 运行所需浏览器与依赖 | 是，可跳过 | `playwright-cli install`；可设置 `M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS=1` 跳过 |
-| IMA Skill `ima-skill` | IMA 笔记和知识库 OpenAPI skill | 是 | 从 <https://ima.qq.com/agent-interface> 解析官方 zip 并安装 |
+| Playwright CLI `playwright-cli` | 浏览器自动化工具及对应 skill 来源 | 是 | 已存在则跳过全局 npm 安装；缺失时执行 `npm install -g @playwright/cli@latest` |
+| Playwright 浏览器依赖 | Playwright 运行所需浏览器与依赖 | 是，可跳过 | 仅首次安装 `playwright-cli` 后执行 `playwright-cli install`；已安装 CLI 或设置 `M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS=1` 时跳过 |
+| IMA Skill `ima-skill` | IMA 笔记和知识库 OpenAPI skill | 是 | 所选目标已存在 `ima-skill/SKILL.md` 则跳过；否则从 <https://ima.qq.com/agent-interface> 解析官方 zip 并安装 |
 
 脚本执行下载时会显示下载 URL、目标文件名、已下载大小和百分比（如果服务端返回总大小）。
 
@@ -165,6 +168,8 @@ command -v bw && bw status --raw
 command -v gh && gh --version
 command -v gh && gh skill --help | head -5
 command -v glab && glab --version
+command -v bun && bun --version
+command -v zentao && zentao --version
 gh auth status
 ls -la ~/.config/m_skill_auths/ 2>/dev/null
 test -s ~/.config/m_skill_auths/bw_session && echo bw_session configured

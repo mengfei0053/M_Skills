@@ -40,6 +40,8 @@ M_SKILLS_CONTENTS_API_URL = (
     "https://api.github.com/repos/mengfei0053/M_Skills/contents/skills?ref=main"
 )
 PLAYWRIGHT_CLI_REPO_URL = "https://github.com/microsoft/playwright-cli"
+ZENTAO_CLI_PACKAGE = "zentao-cli"
+ZENTAO_CLI_COMMAND = "zentao"
 IMA_AGENT_INTERFACE_URL = "https://ima.qq.com/agent-interface"
 JS_BUNDLE_RE = re.compile(
     r"https://static\.ima\.qq\.com/ima/assets/agent-interface/assets/index-[A-Za-z0-9_-]+\.js"
@@ -939,6 +941,44 @@ def install_glab_cli(report: InstallReport, system: str) -> bool:
     print(f"GitLab CLI installation completed: {glab_path}")
     return True
 
+def install_zentao_cli(report: InstallReport) -> bool:
+    zentao_path = which(ZENTAO_CLI_COMMAND)
+    if zentao_path is not None:
+        report.tools["zentao"] = zentao_path
+        print(f"ZenTao CLI already installed: {zentao_path}")
+        return True
+
+    bun_path = which("bun")
+    report.tools["bun"] = bun_path or "not found"
+    if bun_path is None:
+        print(
+            "Bun is required to install ZenTao CLI. Install Bun, then run `bun install -g zentao-cli`.",
+            file=sys.stderr,
+        )
+        report.tools["zentao"] = "not found"
+        return False
+
+    print("")
+    print("Installing ZenTao CLI (bun install -g zentao-cli) ...")
+    try:
+        run_command([bun_path, "install", "-g", ZENTAO_CLI_PACKAGE])
+    except (OSError, subprocess.CalledProcessError) as exc:
+        print(f"Failed to install ZenTao CLI: {exc}", file=sys.stderr)
+        report.tools["zentao"] = "not found"
+        return False
+
+    zentao_path = which(ZENTAO_CLI_COMMAND)
+    report.tools["zentao"] = zentao_path or "installed; restart shell if not on PATH"
+    if zentao_path is None:
+        print(
+            "ZenTao CLI installed, but `zentao` is not currently on PATH.",
+            file=sys.stderr,
+        )
+        return False
+
+    print(f"ZenTao CLI installation completed: {zentao_path}")
+    return True
+
 
 def env_flag_enabled(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
@@ -968,19 +1008,65 @@ def record_install(report: InstallReport, label: str, skill: str, dest: Path) ->
     report.installed_rows.append((label, skill, format_path(dest)))
 
 
+def file_content_matches(src: Path, dest: Path) -> bool:
+    try:
+        return dest.is_file() and src.read_bytes() == dest.read_bytes()
+    except OSError:
+        return False
+
+
+def bytes_content_matches(content: bytes, dest: Path) -> bool:
+    try:
+        return dest.is_file() and content == dest.read_bytes()
+    except OSError:
+        return False
+
+
+def tree_file_map(root: Path) -> dict[Path, bytes] | None:
+    files: dict[Path, bytes] = {}
+    try:
+        for path in root.rglob("*"):
+            if path.is_dir():
+                continue
+            if not path.is_file():
+                return None
+            files[path.relative_to(root)] = path.read_bytes()
+    except OSError:
+        return None
+    return files
+
+
+def skill_tree_matches(src: Path, dest: Path) -> bool:
+    if not dest.is_dir():
+        return False
+    src_files = tree_file_map(src)
+    dest_files = tree_file_map(dest)
+    return src_files is not None and src_files == dest_files
+
+
 def install_skill_file(src: Path, dest: Path) -> None:
+    if file_content_matches(src, dest):
+        print(f"already installed: {dest}")
+        return
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src, dest)
     print(f"installed: {dest}")
 
 
 def install_skill_content(content: str, dest: Path) -> None:
+    encoded = content.encode("utf-8")
+    if bytes_content_matches(encoded, dest):
+        print(f"already installed: {dest}")
+        return
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(content, encoding="utf-8")
+    dest.write_bytes(encoded)
     print(f"installed: {dest}")
 
 
 def install_skill_tree(src: Path, dest: Path) -> None:
+    if skill_tree_matches(src, dest):
+        print(f"already installed: {dest}")
+        return
     dest.parent.mkdir(parents=True, exist_ok=True)
     try:
         if dest.exists():
@@ -1084,6 +1170,23 @@ def install_tree_skill(
         dest = option.root() / skill_name
         install_skill_tree(skill_src, dest)
         record_install(report, option.label, skill_name, dest)
+
+def tree_skill_installed_in_targets(targets: set[str], skill_name: str) -> bool:
+    options = [option for option in selected_target_options(targets) if option.tree_skill]
+    return all((option.root() / skill_name / "SKILL.md").is_file() for option in options)
+
+
+def local_skill_target_matches(
+    local_repo: Path, option: TargetOption, skill_name: str
+) -> bool:
+    skill_dir = local_repo / "skills" / skill_name
+    if option.repo_skill:
+        return file_content_matches(
+            skill_dir / "SKILL.md", option.root() / skill_name / "SKILL.md"
+        )
+    if option.tree_skill:
+        return skill_tree_matches(skill_dir, option.root() / skill_name)
+    return True
 
 
 def has_yaml_frontmatter(path: Path) -> bool:
@@ -1272,8 +1375,15 @@ def install_repo_user_skills_with_gh(report: InstallReport, targets: set[str]) -
         f"Installing local user skills through 'gh skill install' ({GITHUB_CLI_SKILL_MANUAL_URL}) ..."
     )
     ok = True
+    attempted = 0
+    skipped = 0
     for skill_name in report.repo_skills:
         for option in selected_target_options(targets):
+            if local_skill_target_matches(local_repo, option, skill_name):
+                print(f"gh skill skipped: {option.label} / {skill_name} already installed")
+                skipped += 1
+                continue
+            attempted += 1
             try:
                 run_command(
                     [
@@ -1295,7 +1405,10 @@ def install_repo_user_skills_with_gh(report: InstallReport, targets: set[str]) -
                     file=sys.stderr,
                 )
                 ok = False
-    report.tools["gh skill"] = "available" if ok else "failed"
+    if attempted == 0 and skipped > 0:
+        report.tools["gh skill"] = "skipped (already installed)"
+    else:
+        report.tools["gh skill"] = "available" if ok else "failed"
     return ok
 
 
@@ -1316,41 +1429,78 @@ def fetch_ima_skills_download_url(page_url: str) -> str:
 
 
 def install_playwright_cli_and_skills(report: InstallReport, targets: set[str]) -> bool:
-    if which("npm") is None:
-        print(
-            f"npm is required to install playwright-cli ({PLAYWRIGHT_CLI_REPO_URL})",
-            file=sys.stderr,
-        )
-        return False
-    if which("node") is None:
-        print("Node.js 18+ is required to install playwright-cli", file=sys.stderr)
-        return False
-
-    print("")
-    print(f"Installing @playwright/cli globally ({PLAYWRIGHT_CLI_REPO_URL}) ...")
-    try:
-        run_command(["npm", "install", "-g", "@playwright/cli@latest"])
-    except subprocess.CalledProcessError as exc:
-        print(f"Failed to install @playwright/cli: {exc}", file=sys.stderr)
-        return False
-
-    report.tools["node"] = which("node") or "not found"
-    report.tools["npm"] = which("npm") or "not found"
-
     playwright_cli = which("playwright-cli")
-    report.tools["playwright-cli"] = playwright_cli or "not found"
-    if playwright_cli is None:
+    cli_already_installed = playwright_cli is not None
+    node_path = which("node")
+    npm_path = which("npm")
+    if node_path is not None:
+        report.tools["node"] = node_path
+    if npm_path is not None:
+        report.tools["npm"] = npm_path
+
+    if cli_already_installed:
+        report.tools["playwright-cli"] = playwright_cli or "not found"
+        print(f"Playwright CLI already installed: {playwright_cli}")
+    else:
+        if npm_path is None:
+            print(
+                f"npm is required to install playwright-cli ({PLAYWRIGHT_CLI_REPO_URL})",
+                file=sys.stderr,
+            )
+            return False
+        if node_path is None:
+            print("Node.js 18+ is required to install playwright-cli", file=sys.stderr)
+            return False
+
+        print("")
+        print(f"Installing @playwright/cli globally ({PLAYWRIGHT_CLI_REPO_URL}) ...")
+        try:
+            run_command([npm_path, "install", "-g", "@playwright/cli@latest"])
+        except subprocess.CalledProcessError as exc:
+            print(f"Failed to install @playwright/cli: {exc}", file=sys.stderr)
+            return False
+
+        report.tools["node"] = which("node") or "not found"
+        report.tools["npm"] = which("npm") or "not found"
+
+        playwright_cli = which("playwright-cli")
+        report.tools["playwright-cli"] = playwright_cli or "not found"
+        if playwright_cli is None:
+            print(
+                "playwright-cli not found in PATH after npm global install",
+                file=sys.stderr,
+            )
+            print(
+                "Ensure the npm global bin directory is on PATH, then re-run.",
+                file=sys.stderr,
+            )
+            report.tree_skills["playwright-cli"] = False
+            return False
+
+    if cli_already_installed and tree_skill_installed_in_targets(
+        targets, "playwright-cli"
+    ):
+        print("playwright-cli skill already installed in selected directories.")
+        report.tools["playwright browsers"] = "skipped (playwright-cli already installed)"
+        report.tree_skills["playwright-cli"] = True
+        return True
+
+    npm_path = which("npm")
+    if npm_path is None:
         print(
-            "playwright-cli not found in PATH after npm global install", file=sys.stderr
-        )
-        print(
-            "Ensure the npm global bin directory is on PATH, then re-run.",
+            "npm is required to locate the installed playwright-cli skill bundle.",
             file=sys.stderr,
         )
         report.tree_skills["playwright-cli"] = False
         return False
 
-    npm_root = subprocess.check_output(["npm", "root", "-g"], text=True).strip()
+    try:
+        npm_root = subprocess.check_output([npm_path, "root", "-g"], text=True).strip()
+    except (OSError, subprocess.CalledProcessError) as exc:
+        print(f"Failed to locate npm global root: {exc}", file=sys.stderr)
+        report.tree_skills["playwright-cli"] = False
+        return False
+
     skill_src = Path(npm_root) / "@playwright" / "cli" / "skills" / "playwright-cli"
     if not (skill_src / "SKILL.md").is_file():
         print(f"playwright-cli skill bundle not found at {skill_src}", file=sys.stderr)
@@ -1359,6 +1509,14 @@ def install_playwright_cli_and_skills(report: InstallReport, targets: set[str]) 
 
     print("Installing playwright-cli skill to selected directories ...")
     install_tree_skill(report, targets, "playwright-cli", skill_src)
+
+    if cli_already_installed:
+        print(
+            "Skipping Playwright browser dependencies because playwright-cli was already installed."
+        )
+        report.tools["playwright browsers"] = "skipped (playwright-cli already installed)"
+        report.tree_skills["playwright-cli"] = True
+        return True
 
     if env_flag_enabled(SKIP_PLAYWRIGHT_BROWSERS_ENV_VAR):
         print(
@@ -1414,6 +1572,11 @@ def install_playwright_cli_and_skills(report: InstallReport, targets: set[str]) 
 
 
 def install_ima_skills(report: InstallReport, targets: set[str]) -> bool:
+    if tree_skill_installed_in_targets(targets, "ima-skill"):
+        print("IMA skill already installed in selected directories.")
+        report.tree_skills["ima-skill"] = True
+        return True
+
     print("")
     print(f"Installing IMA skills from {IMA_AGENT_INTERFACE_URL} ...")
     try:
@@ -1922,9 +2085,11 @@ def print_install_summary(report: InstallReport) -> None:
         "gh": "GitHub CLI (gh)",
         "gh skill": "gh skill",
         "glab": "GitLab CLI (glab)",
+        "bun": "Bun",
+        "zentao": "ZenTao CLI (zentao)",
         "node": "Node.js",
         "npm": "npm",
-        "playwright-cli": "playwright-cli",
+        "playwright-cli": "Playwright CLI",
         "playwright browsers": "Playwright browser deps",
     }
     tool_rows = []
@@ -1933,6 +2098,8 @@ def print_install_summary(report: InstallReport) -> None:
         "gh",
         "gh skill",
         "glab",
+        "bun",
+        "zentao",
         "node",
         "npm",
         "playwright-cli",
@@ -2030,10 +2197,16 @@ def main() -> int:
             file=sys.stderr,
         )
 
+    if not install_zentao_cli(report):
+        print(
+            "ZenTao CLI installation failed; install manually: bun install -g zentao-cli",
+            file=sys.stderr,
+        )
+
     if not install_playwright_cli_and_skills(report, targets):
         print(
             "playwright-cli installation failed; install manually: "
-            "npm install -g @playwright/cli@latest && playwright-cli install --skills",
+            "npm install -g @playwright/cli@latest && playwright-cli install",
             file=sys.stderr,
         )
 
