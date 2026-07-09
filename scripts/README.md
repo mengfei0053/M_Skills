@@ -15,10 +15,9 @@
 7. 全局安装 `@playwright/cli`，同步 `playwright-cli` skill，并引导安装 Playwright 浏览器依赖。
 8. 从 IMA agent-interface 下载并安装官方 `ima-skill`。
 9. 可选写入 IMA Client ID / API Key 到 `~/.config/ima/`；用户可直接回车跳过，无可用 `/dev/tty` 时自动跳过。
-10. Bitwarden session 可用后先执行 `bw sync --session "$BW_SESSION"` 同步 vault，再通过 `bw get password github_gh_token --session "$BW_SESSION"` 读取 GitHub token，写入 `~/.config/m_skill_auths/gh_token`。
-11. 如果 `gh` 尚未登录，通过 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token` 完成登录。
-12. 询问是否登录 GitLab CLI；如果用户选择登录，则用同样方式从 Bitwarden 读取 `gitlab_glab_token`，写入 `~/.config/m_skill_auths/glab_token`，并执行 `glab auth login --hostname <host> --api-protocol <http|https> --stdin < ~/.config/m_skill_auths/glab_token`。
-13. 打印安装摘要，包括工具状态、安装明细和凭证路径。
+10. 如果 `gh auth status` 已登录，跳过 GitHub token 导出和 `gh auth login`；否则通过 Bitwarden session 执行 `bw sync --session "$BW_SESSION"`，再通过 `bw get password github_gh_token --session "$BW_SESSION"` 读取 GitHub token，写入 `~/.config/m_skill_auths/gh_token` 并登录 `gh`。
+11. 询问是否登录 GitLab CLI；如果用户选择登录且 `glab auth status --hostname <host>` 已登录，跳过 GitLab token 导出和 `glab auth login`；否则从 Bitwarden 读取 `gitlab_glab_token`，写入 `~/.config/m_skill_auths/glab_token`，并执行 `glab auth login --hostname <host> --api-protocol <http|https> --stdin < ~/.config/m_skill_auths/glab_token`。
+12. 打印安装摘要，包括工具状态、安装明细和凭证路径。
 
 ## 前置条件
 
@@ -135,10 +134,10 @@ python3 scripts/install-user-skills.py
 | IMA Skill `ima-skill` | 访问 IMA agent-interface，解析并下载官方 `ima-skills` zip | 是，下载并复制 skill 目录 | 下载、解析或解压失败时记录失败并提示后续手动修复 |
 | IMA 凭证目录 | 检查 `~/.config/ima/client_id` 与 `~/.config/ima/api_key` 是否已存在且非空 | 部分自动：创建目录和文件；凭证可选输入 | 管道运行时从 `/dev/tty` 读取；直接回车或无可用 `/dev/tty` 时跳过，不阻断后续安装 |
 | Bitwarden session 文件 | `bw unlock --raw` 返回的 session | 是，仅缺少有效 session 并解锁成功时写入 | 写入 `~/.config/m_skill_auths/bw_session`，并同步设置当前进程环境变量 `BW_SESSION` |
-| GitHub token 文件 | 先执行 `bw sync --session "$BW_SESSION"`，再用 `bw get password github_gh_token --session "$BW_SESSION"` 读取并写入 `~/.config/m_skill_auths/gh_token` | 是，依赖可用的 `BW_SESSION` | session 缺失时自动读取 `bw_session` 文件或重新 unlock；sync 失败、Bitwarden 条目缺失或 token 为空时停止并提示修复 |
-| GitHub CLI 登录 | `gh auth status` | 仅未登录时自动登录 | 未登录时执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`；失败则停止 |
-| GitLab token 文件 | 用户选择登录 glab 后，先执行 `bw sync --session "$BW_SESSION"`，再用 `bw get password gitlab_glab_token --session "$BW_SESSION"` 读取并写入 `~/.config/m_skill_auths/glab_token` | 是，依赖用户确认和可用的 `BW_SESSION` | 用户可跳过；token 缺失、为空或 sync 失败时停止并提示修复 |
-| GitLab CLI 登录 | `glab auth status --hostname <host>` | 可选，仅用户选择且未登录时执行 | 执行 `glab auth login --hostname <host> --api-protocol <http\|https> --stdin < ~/.config/m_skill_auths/glab_token`；host 默认 `gitlab.com`，填裸主机名或 `host:port`，不要带协议，可用 `M_SKILLS_GITLAB_HOST` 预设；API protocol 默认 `https`，可用 `M_SKILLS_GITLAB_API_PROTOCOL` 预设 |
+| GitHub token 文件 | `gh auth status` 未登录时，先执行 `bw sync --session "$BW_SESSION"`，再用 `bw get password github_gh_token --session "$BW_SESSION"` 读取并写入 `~/.config/m_skill_auths/gh_token` | 是，依赖可用的 `BW_SESSION` | 如果 `gh` 已登录则跳过；未登录时 session 缺失会自动读取 `bw_session` 文件或重新 unlock；sync 失败、Bitwarden 条目缺失或 token 为空时停止并提示修复 |
+| GitHub CLI 登录 | `gh auth status` | 仅未登录时自动登录 | 已登录时跳过 Bitwarden sync、token 读取和 `gh auth login`；未登录时执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`，失败则停止 |
+| GitLab token 文件 | 用户选择登录 glab 且 `glab auth status --hostname <host>` 未登录时，先执行 `bw sync --session "$BW_SESSION"`，再用 `bw get password gitlab_glab_token --session "$BW_SESSION"` 读取并写入 `~/.config/m_skill_auths/glab_token` | 是，依赖用户确认和可用的 `BW_SESSION` | 用户可跳过；目标 host 已登录时跳过；token 缺失、为空或 sync 失败时停止并提示修复 |
+| GitLab CLI 登录 | `glab auth status --hostname <host>` | 可选，仅用户选择且目标 host 未登录时执行 | 已登录时跳过 Bitwarden sync、token 读取和 `glab auth login`；未登录时执行 `glab auth login --hostname <host> --api-protocol <http\|https> --stdin < ~/.config/m_skill_auths/glab_token`；host 默认 `gitlab.com`，填裸主机名或 `host:port`，不要带协议，可用 `M_SKILLS_GITLAB_HOST` 预设；API protocol 默认 `https`，可用 `M_SKILLS_GITLAB_API_PROTOCOL` 预设 |
 
 ## 外部依赖行为
 
@@ -161,14 +160,15 @@ python3 scripts/install-user-skills.py
 - Windows 上不会自动安装 `gh`，只会提示用户手动安装。
 - 如果 `gh skill --help` 可用，脚本会额外尝试 `gh skill install --from-local`。
 - 即使 `gh skill` 不可用，直接文件复制安装结果仍会保留。
-- 安装完成后，脚本会先执行 `bw sync --session "$BW_SESSION"` 同步 vault，再从 Bitwarden 条目 `github_gh_token` 读取 token，写入 `~/.config/m_skill_auths/gh_token`。
-- 如果 `gh auth status` 显示未登录，脚本会执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`。
+- 安装完成后，脚本会先执行 `gh auth status`。如果已登录，直接跳过 Bitwarden sync、`github_gh_token` 读取、token 文件写入和 `gh auth login`。
+- 如果 `gh auth status` 显示未登录，脚本才会执行 `bw sync --session "$BW_SESSION"`，从 Bitwarden 条目 `github_gh_token` 读取 token，写入 `~/.config/m_skill_auths/gh_token`，并执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`。
 
 ### GitLab CLI
 
 - 如果 `glab` 已存在，脚本会直接记录路径。
 - 安装完成后会询问是否使用 Bitwarden 条目 `gitlab_glab_token` 登录 `glab`；该交互支持 `curl | python3`，会从 `/dev/tty` 读取选择、hostname 和 API protocol。
-- 用户选择登录时，脚本会把 token 写入 `~/.config/m_skill_auths/glab_token`，并执行 `glab auth login --hostname <host> --api-protocol <http|https> --stdin < ~/.config/m_skill_auths/glab_token`。hostname 填裸主机名或 `host:port`，不要带 `http://` / `https://`；API protocol 默认 `https`，内网 HTTP GitLab 请选择 `http`。
+- 用户选择登录时，脚本先执行 `glab auth status --hostname <host>`。如果已登录，直接跳过 Bitwarden sync、`gitlab_glab_token` 读取、token 文件写入和 `glab auth login`。
+- 如果目标 host 未登录，脚本会把 token 写入 `~/.config/m_skill_auths/glab_token`，并执行 `glab auth login --hostname <host> --api-protocol <http|https> --stdin < ~/.config/m_skill_auths/glab_token`。hostname 填裸主机名或 `host:port`，不要带 `http://` / `https://`；API protocol 默认 `https`，内网 HTTP GitLab 请选择 `http`。
 - macOS 上会使用 Homebrew 执行 `brew install glab`。
 - Linux / Windows 上会访问 GitLab CLI 最新 release API，选择当前系统和 CPU 架构匹配的安装包。
 - Linux 优先使用 `.deb` / `.rpm` / `.apk` 包；没有可用包管理器或 sudo 时回退到 `.tar.gz`，安装到 `~/.local/bin/glab`。

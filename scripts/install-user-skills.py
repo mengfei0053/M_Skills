@@ -1660,13 +1660,25 @@ def sync_bitwarden_vault(bw_path: str, bw_session: str) -> bool:
 
 
 def export_github_token_from_bitwarden(report: InstallReport) -> bool:
+    gh_path = which("gh")
+    if gh_path is None:
+        print(
+            "错误: 未找到 GitHub CLI `gh`，无法检测或执行 GitHub 登录。",
+            file=sys.stderr,
+        )
+        return False
+
+    if github_cli_is_authenticated(gh_path):
+        print("GitHub CLI 已登录，跳过 Bitwarden GitHub token 导出。")
+        report.gh_token_configured = True
+        return True
+
     bw_path = which("bw")
     if bw_path is None:
         print(
             "错误: 未找到 Bitwarden CLI `bw`，无法导出 GitHub token。", file=sys.stderr
         )
         return False
-
     bw_session = os.environ.get("BW_SESSION", "").strip()
     if not bw_session:
         if not ensure_bw_session(bw_path):
@@ -1750,13 +1762,25 @@ def export_github_token_from_bitwarden(report: InstallReport) -> bool:
 def export_gitlab_token_from_bitwarden(
     report: InstallReport, hostname: str, api_protocol: str
 ) -> bool:
+    glab_path = which("glab")
+    if glab_path is None:
+        print(
+            "错误: 未找到 GitLab CLI `glab`，无法检测或执行 GitLab 登录。",
+            file=sys.stderr,
+        )
+        return False
+
+    if gitlab_cli_is_authenticated(glab_path, hostname):
+        print(f"GitLab CLI 已登录 {hostname}，跳过 Bitwarden GitLab token 导出。")
+        report.glab_token_configured = True
+        return True
+
     bw_path = which("bw")
     if bw_path is None:
         print(
             "错误: 未找到 Bitwarden CLI `bw`，无法导出 GitLab token。", file=sys.stderr
         )
         return False
-
     bw_session = os.environ.get("BW_SESSION", "").strip()
     if not bw_session:
         if not ensure_bw_session(bw_path):

@@ -48,8 +48,8 @@ Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`
 3. 检查/安装 [GitLab CLI `glab`](https://gitlab.com/gitlab-org/cli/-/releases)：macOS 通过 Homebrew，Linux / Windows 从最新 release 下载匹配安装包。
 4. 从 [playwright-cli](https://github.com/microsoft/playwright-cli) 全局安装 `@playwright/cli`，并将 `playwright-cli` skill 同步到用户级 skills 目录。
 5. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 安装官方 `ima-skill`，并可选配置 IMA Client ID / API Key（直接回车或无可用 TTY 时跳过，已配置时写入 `~/.config/ima/`）。
-6. 安装完成后先执行 `bw sync --session "$BW_SESSION"` 同步 Bitwarden vault，再使用 `BW_SESSION` 读取 `github_gh_token`，写入 `~/.config/m_skill_auths/gh_token`；如果 `gh` 未登录，则执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`。
-7. 询问是否登录 GitLab CLI；如果用户选择登录，则从 Bitwarden 读取 `gitlab_glab_token`，写入 `~/.config/m_skill_auths/glab_token`，并执行 `glab auth login --hostname <host> --api-protocol <http|https> --stdin < ~/.config/m_skill_auths/glab_token`。`host` 填裸主机名或 `host:port`，不要带 `http://` / `https://`。
+6. 安装完成后先检查 `gh auth status`；如果 GitHub CLI 已登录，跳过 `bw sync`、读取 `github_gh_token`、写入 `~/.config/m_skill_auths/gh_token` 和 `gh auth login`。仅未登录时才通过 `BW_SESSION` 同步 Bitwarden vault，读取并写入 GitHub token 后登录 `gh`。
+7. 询问是否登录 GitLab CLI；如果用户选择登录，先检查 `glab auth status --hostname <host>`；如果目标 GitLab 已登录，跳过 `bw sync`、读取 `gitlab_glab_token`、写入 `~/.config/m_skill_auths/glab_token` 和 `glab auth login`。仅未登录时才从 Bitwarden 读取 token，并执行 `glab auth login --hostname <host> --api-protocol <http|https> --stdin < ~/.config/m_skill_auths/glab_token`。`host` 填裸主机名或 `host:port`，不要带 `http://` / `https://`。
 
 ## 安装软件清单
 
