@@ -240,6 +240,21 @@ def persist_bw_session(session: str) -> None:
     os.environ["BW_SESSION"] = session
 
 
+def load_persisted_bw_session() -> bool:
+    session_path = bw_session_file()
+    try:
+        session = session_path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return False
+
+    if not session:
+        return False
+
+    os.environ["BW_SESSION"] = session
+    print(f"BW_SESSION 已从 {session_path} 载入当前安装进程。")
+    return True
+
+
 def parse_target_keys(raw: str) -> set[str]:
     value = raw.strip().lower()
     if value in {"all", "*", ""}:
@@ -477,7 +492,10 @@ def unlock_bitwarden_vault(bw_path: str) -> bool:
         return False
 
     if result.returncode != 0:
-        print("错误: `bw unlock --raw` 执行失败，请确认主密码正确后重试。", file=sys.stderr)
+        print(
+            "错误: `bw unlock --raw` 执行失败，请确认主密码正确后重试。",
+            file=sys.stderr,
+        )
         return False
 
     session = result.stdout.strip()
@@ -489,6 +507,14 @@ def unlock_bitwarden_vault(bw_path: str) -> bool:
     print(f"Bitwarden vault 已解锁，session 已写入: {bw_session_file()}")
     print("BW_SESSION 已设置到当前安装进程，后续 Bitwarden 读取会自动复用。")
     return True
+
+
+def ensure_bw_session(bw_path: str, *, force_unlock: bool = False) -> bool:
+    if not force_unlock and os.environ.get("BW_SESSION", "").strip():
+        return True
+    if not force_unlock and load_persisted_bw_session():
+        return True
+    return unlock_bitwarden_vault(bw_path)
 
 
 def require_bitwarden_cli(report: InstallReport) -> bool:
@@ -548,10 +574,13 @@ def require_bitwarden_cli(report: InstallReport) -> bool:
         return False
 
     if status == "locked":
-        if not unlock_bitwarden_vault(bw_path):
+        if not ensure_bw_session(bw_path, force_unlock=True):
             report.tools["bw"] = "locked"
             return False
         status = "unlocked"
+    elif status == "unlocked" and not ensure_bw_session(bw_path):
+        report.tools["bw"] = "unlocked; session unavailable"
+        return False
 
     report.tools["bw"] = f"{bw_path} ({status})"
     print(f"Bitwarden CLI: {bw_path} ({status})")
@@ -959,96 +988,124 @@ def install_github_cli(report: InstallReport, system: str) -> bool:
         print(f"GitHub CLI already installed: {gh_path}")
         return True
 
-    if system != "Linux":
-        print(
-            "GitHub CLI (gh) is not installed; automatic installation is only enabled on Linux. "
-            f"See {GITHUB_CLI_INSTALL_LINUX_URL} for Linux and cli.github.com for other platforms.",
-            file=sys.stderr,
-        )
-        report.tools["gh"] = "not found"
-        return False
-
-    sudo = sudo_prefix()
-    if sudo is None:
-        print(
-            "GitHub CLI installation requires root privileges or sudo.", file=sys.stderr
-        )
-        report.tools["gh"] = "not found"
-        return False
-
-    print("")
-    print(
-        f"Installing GitHub CLI (gh) using official Linux package guidance ({GITHUB_CLI_INSTALL_LINUX_URL}) ..."
-    )
-    try:
-        if which("apt") is not None and which("dpkg") is not None:
-            run_bash_command(
-                f"(type -p wget >/dev/null || ({sudo}apt update && {sudo}apt install wget -y)) "
-                f"&& {sudo}mkdir -p -m 755 /etc/apt/keyrings "
-                "&& out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg "
-                f"&& cat $out | {sudo}tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null "
-                f"&& {sudo}chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg "
-                f"&& {sudo}mkdir -p -m 755 /etc/apt/sources.list.d "
-                '&& echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" '
-                f"| {sudo}tee /etc/apt/sources.list.d/github-cli.list > /dev/null "
-                f"&& {sudo}apt update "
-                f"&& {sudo}apt install gh -y"
-            )
-        elif which("dnf") is not None:
-            run_command(
-                [
-                    *(sudo.split() if sudo else []),
-                    "dnf",
-                    "install",
-                    "dnf-command(config-manager)",
-                    "-y",
-                ]
-            )
-            run_command(
-                [
-                    *(sudo.split() if sudo else []),
-                    "dnf",
-                    "config-manager",
-                    "--add-repo",
-                    "https://cli.github.com/packages/rpm/gh-cli.repo",
-                ]
-            )
-            run_command([*(sudo.split() if sudo else []), "dnf", "install", "gh", "-y"])
-        elif which("yum") is not None:
-            run_command(
-                [*(sudo.split() if sudo else []), "yum", "install", "yum-utils", "-y"]
-            )
-            run_command(
-                [
-                    *(sudo.split() if sudo else []),
-                    "yum-config-manager",
-                    "--add-repo",
-                    "https://cli.github.com/packages/rpm/gh-cli.repo",
-                ]
-            )
-            run_command([*(sudo.split() if sudo else []), "yum", "install", "gh", "-y"])
-        elif which("zypper") is not None:
-            run_command(
-                [
-                    *(sudo.split() if sudo else []),
-                    "zypper",
-                    "addrepo",
-                    "https://cli.github.com/packages/rpm/gh-cli.repo",
-                ]
-            )
-            run_command([*(sudo.split() if sudo else []), "zypper", "ref"])
-            run_command(
-                [*(sudo.split() if sudo else []), "zypper", "install", "-y", "gh"]
-            )
-        else:
+    if system == "Darwin":
+        if which("brew") is None:
             print(
-                "No supported Linux package manager found for automatic gh installation.",
+                "GitHub CLI (gh) is not installed and Homebrew was not found. "
+                "Install Homebrew or install gh manually from cli.github.com.",
                 file=sys.stderr,
             )
             report.tools["gh"] = "not found"
             return False
-    except subprocess.CalledProcessError as exc:
-        print(f"Failed to install GitHub CLI (gh): {exc}", file=sys.stderr)
+        print("")
+        print("Installing GitHub CLI (gh) with Homebrew (brew install gh) ...")
+        try:
+            run_command(["brew", "install", "gh"])
+        except subprocess.CalledProcessError as exc:
+            print(f"Failed to install GitHub CLI (gh): {exc}", file=sys.stderr)
+            report.tools["gh"] = "not found"
+            return False
+    elif system == "Linux":
+        sudo = sudo_prefix()
+        if sudo is None:
+            print(
+                "GitHub CLI installation requires root privileges or sudo.",
+                file=sys.stderr,
+            )
+            report.tools["gh"] = "not found"
+            return False
+
+        print("")
+        print(
+            f"Installing GitHub CLI (gh) using official Linux package guidance ({GITHUB_CLI_INSTALL_LINUX_URL}) ..."
+        )
+        try:
+            if which("apt") is not None and which("dpkg") is not None:
+                run_bash_command(
+                    f"(type -p wget >/dev/null || ({sudo}apt update && {sudo}apt install wget -y)) "
+                    f"&& {sudo}mkdir -p -m 755 /etc/apt/keyrings "
+                    "&& out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg "
+                    f"&& cat $out | {sudo}tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null "
+                    f"&& {sudo}chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg "
+                    f"&& {sudo}mkdir -p -m 755 /etc/apt/sources.list.d "
+                    '&& echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" '
+                    f"| {sudo}tee /etc/apt/sources.list.d/github-cli.list > /dev/null "
+                    f"&& {sudo}apt update "
+                    f"&& {sudo}apt install gh -y"
+                )
+            elif which("dnf") is not None:
+                run_command(
+                    [
+                        *(sudo.split() if sudo else []),
+                        "dnf",
+                        "install",
+                        "dnf-command(config-manager)",
+                        "-y",
+                    ]
+                )
+                run_command(
+                    [
+                        *(sudo.split() if sudo else []),
+                        "dnf",
+                        "config-manager",
+                        "--add-repo",
+                        "https://cli.github.com/packages/rpm/gh-cli.repo",
+                    ]
+                )
+                run_command(
+                    [*(sudo.split() if sudo else []), "dnf", "install", "gh", "-y"]
+                )
+            elif which("yum") is not None:
+                run_command(
+                    [
+                        *(sudo.split() if sudo else []),
+                        "yum",
+                        "install",
+                        "yum-utils",
+                        "-y",
+                    ]
+                )
+                run_command(
+                    [
+                        *(sudo.split() if sudo else []),
+                        "yum-config-manager",
+                        "--add-repo",
+                        "https://cli.github.com/packages/rpm/gh-cli.repo",
+                    ]
+                )
+                run_command(
+                    [*(sudo.split() if sudo else []), "yum", "install", "gh", "-y"]
+                )
+            elif which("zypper") is not None:
+                run_command(
+                    [
+                        *(sudo.split() if sudo else []),
+                        "zypper",
+                        "addrepo",
+                        "https://cli.github.com/packages/rpm/gh-cli.repo",
+                    ]
+                )
+                run_command([*(sudo.split() if sudo else []), "zypper", "ref"])
+                run_command(
+                    [*(sudo.split() if sudo else []), "zypper", "install", "-y", "gh"]
+                )
+            else:
+                print(
+                    "No supported Linux package manager found for automatic gh installation.",
+                    file=sys.stderr,
+                )
+                report.tools["gh"] = "not found"
+                return False
+        except subprocess.CalledProcessError as exc:
+            print(f"Failed to install GitHub CLI (gh): {exc}", file=sys.stderr)
+            report.tools["gh"] = "not found"
+            return False
+    else:
+        print(
+            "GitHub CLI (gh) is not installed; automatic installation is enabled on macOS and Linux only. "
+            f"See {GITHUB_CLI_INSTALL_LINUX_URL} for Linux and cli.github.com for other platforms.",
+            file=sys.stderr,
+        )
         report.tools["gh"] = "not found"
         return False
 
@@ -1346,12 +1403,17 @@ def export_github_token_from_bitwarden(report: InstallReport) -> bool:
 
     bw_session = os.environ.get("BW_SESSION", "").strip()
     if not bw_session:
+        if not ensure_bw_session(bw_path):
+            print(
+                "错误: 无法获取 BW_SESSION，无法从 Bitwarden 读取 github_gh_token。",
+                file=sys.stderr,
+            )
+            return False
+        bw_session = os.environ.get("BW_SESSION", "").strip()
+
+    if not bw_session:
         print(
-            "错误: BW_SESSION 未设置，无法从 Bitwarden 读取 github_gh_token。",
-            file=sys.stderr,
-        )
-        print(
-            "请先运行 `export BW_SESSION=$(bw unlock --raw)`，再重新执行本脚本。",
+            "错误: BW_SESSION 仍为空，无法从 Bitwarden 读取 github_gh_token。",
             file=sys.stderr,
         )
         return False
@@ -1371,10 +1433,29 @@ def export_github_token_from_bitwarden(report: InstallReport) -> bool:
     if result.returncode != 0:
         stderr = result.stderr.strip() or "unknown error"
         print(
-            f"错误: `bw get password github_gh_token` 执行失败: {stderr}",
+            f"警告: `bw get password github_gh_token` 执行失败: {stderr}",
             file=sys.stderr,
         )
-        return False
+        print(
+            "尝试重新执行 `bw unlock --raw` 后再次读取 GitHub token。", file=sys.stderr
+        )
+        if not ensure_bw_session(bw_path, force_unlock=True):
+            return False
+        bw_session = os.environ.get("BW_SESSION", "").strip()
+        result = subprocess.run(
+            [bw_path, "get", "password", "github_gh_token", "--session", bw_session],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            stderr = result.stderr.strip() or "unknown error"
+            print(
+                f"错误: `bw get password github_gh_token` 重试失败: {stderr}",
+                file=sys.stderr,
+            )
+            return False
 
     token = result.stdout.strip()
     if not token:

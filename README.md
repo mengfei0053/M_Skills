@@ -39,7 +39,7 @@ Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`
 
 脚本末尾还会：
 
-1. 按 GitHub CLI 官方 Linux 安装说明安装/检查 [`gh`](https://github.com/cli/cli/blob/trunk/docs/install_linux.md)（非 Linux 平台提示手动安装）。
+1. 安装/检查 [`gh`](https://cli.github.com/)：macOS 通过 `brew install gh`，Linux 按 GitHub CLI 官方包安装说明安装，Windows 提示手动安装。
 2. 参考 [`gh skill`](https://cli.github.com/manual/gh_skill) 预览能力，用 `gh skill install --from-local --dir ... --force` 将本仓库 skills 安装到所选目标目录（直接文件复制仍作为基础安装路径）。
 3. 检查/安装 [GitLab CLI `glab`](https://gitlab.com/gitlab-org/cli/-/releases)：macOS 通过 Homebrew，Linux / Windows 从最新 release 下载匹配安装包。
 4. 从 [playwright-cli](https://github.com/microsoft/playwright-cli) 全局安装 `@playwright/cli`，并将 `playwright-cli` skill 同步到用户级 skills 目录。
@@ -53,7 +53,7 @@ Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`
 | 软件 / 命令 | 用途 | 是否自动安装 | 安装 / 获取方式 |
 |---|---|---|---|
 | Bitwarden CLI `bw` | 密钥、Token、凭证统一管理；读取 `github_gh_token` | 否，必需前置条件 | 手动从 <https://github.com/bitwarden/clients/releases> 下载并运行 `bw login`；vault 为 `locked` 时脚本会自动执行 `bw unlock --raw` |
-| GitHub CLI `gh` | GitHub 认证、`gh skill install` 辅助安装 | Linux 自动安装；其他平台提示手动安装 | Linux 按 GitHub CLI 官方包安装说明；非 Linux 需用户自行安装 |
+| GitHub CLI `gh` | GitHub 认证、`gh skill install` 辅助安装 | macOS / Linux 自动安装；Windows 提示手动安装 | macOS 用 `brew install gh`；Linux 按 GitHub CLI 官方包安装说明；Windows 需用户自行安装 |
 | `gh skill` 子命令 | 使用 GitHub CLI skill 机制安装本仓库 skills | 否 | 已随支持该命令的 `gh` 提供；不可用时跳过 |
 | GitLab CLI `glab` | GitLab 命令行工具 | 是 | macOS 用 `brew install glab`；Linux / Windows 从 GitLab 最新 release 下载匹配安装包 |
 | Node.js `node` | 安装 Playwright CLI 的运行时前置条件 | 否 | 用户自行安装 Node.js 18+ |

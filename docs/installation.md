@@ -19,7 +19,7 @@ M_Skills 现在只维护用户级通用 Skills。每个 Skill 直接位于 `skil
 | Git | 用于克隆仓库和同步更新 |
 | Python 3.8+ | 执行 `scripts/install-user-skills.py`（支持 Windows / Linux / macOS） |
 | Bitwarden CLI `bw` | 必需前置条件；需已安装并通过 `bw login` 登录。未安装时从 <https://github.com/bitwarden/clients/releases> 下载 |
-| GitHub CLI `gh` | 脚本会按官方 Linux 包安装说明自动安装/检查，并用预览版 `gh skill` 进行本地 skill 安装 |
+| GitHub CLI `gh` | 脚本会检查/安装；macOS 用 `brew install gh`，Linux 按官方包安装说明安装，并用预览版 `gh skill` 进行本地 skill 安装 |
 | GitLab CLI `glab` | 脚本会检查/安装；macOS 用 `brew install glab`，Linux / Windows 从 <https://gitlab.com/gitlab-org/cli/-/releases> 最新 release 自动下载匹配安装包 |
 | Node.js 18+ | 安装 `@playwright/cli` |
 | `npm` | 全局安装 `@playwright/cli` |
@@ -53,7 +53,7 @@ M_Skills/
 
 `install-user-skills.py` 在完成 `skills/` 直接文件同步后，还会：
 
-1. 按 [GitHub CLI 官方 Linux 安装说明](https://github.com/cli/cli/blob/trunk/docs/install_linux.md) 安装或检查 `gh`（Debian/Ubuntu `apt`、RPM `dnf`/`yum`、openSUSE `zypper`；非 Linux 平台提示手动安装）。
+1. 安装或检查 `gh`：macOS 使用 `brew install gh`；Linux 按 [GitHub CLI 官方 Linux 安装说明](https://github.com/cli/cli/blob/trunk/docs/install_linux.md)（Debian/Ubuntu `apt`、RPM `dnf`/`yum`、openSUSE `zypper`）；Windows 提示手动安装。
 2. 参考 [`gh skill`](https://cli.github.com/manual/gh_skill) 与 [`gh skill install`](https://cli.github.com/manual/gh_skill_install) 预览能力，用 `gh skill install <repo> skills/<skill>/SKILL.md --from-local --dir <target> --force` 将本仓库 skills 安装到所选目标目录；若 `gh skill` 不可用，保留前一步直接文件同步结果并提示。
 3. 检查/安装 [GitLab CLI `glab`](https://gitlab.com/gitlab-org/cli/-/releases)：macOS 使用 `brew install glab`，Linux / Windows 从最新 release 下载匹配安装包并安装。
 4. 全局安装 [@playwright/cli](https://github.com/microsoft/playwright-cli)，将 `playwright-cli` skill 复制到用户级 skills 目录，并执行 `playwright-cli install` 引导浏览器依赖；Linux 会预先使用 `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-<arch>` 避免 Ubuntu 26.04 ffmpeg 不支持报错。该步骤有 300 秒超时；如需完全跳过，可设置 `M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS=1`，脚本不会把 CLI 与 skill 安装标为失败。
@@ -61,7 +61,7 @@ M_Skills/
 6. 交互提示输入 IMA **Client ID** 与 **API Key**，写入 `~/.config/ima/client_id` 与 `~/.config/ima/api_key`（已存在则跳过）。
 7. 安装完成后执行 `bw get password github_gh_token --session "$BW_SESSION"`，将 GitHub token 写入 `~/.config/m_skill_auths/gh_token`；如果 `gh auth status` 显示未登录，则执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`。
 
-脚本开始时会交互选择安装目标（Agent / Claude / OpenCode / OpenClaw / Cursor Skill）。脚本会从脚本所在目录、当前工作目录及其父目录自动查找包含 `skills/<skill>/SKILL.md` 的 M_Skills 仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/` 内容安装。可用 `M_SKILLS_REPO_DIR` 显式指定本地仓库根目录。如果 Bitwarden vault 为 `locked`，脚本会自动执行 `bw unlock --raw`，将返回的 session 写入 `~/.config/m_skill_auths/bw_session`，并设置当前安装进程的 `BW_SESSION` 供后续读取 GitHub token 使用。
+脚本开始时会交互选择安装目标（Agent / Claude / OpenCode / OpenClaw / Cursor Skill）。脚本会从脚本所在目录、当前工作目录及其父目录自动查找包含 `skills/<skill>/SKILL.md` 的 M_Skills 仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/` 内容安装。可用 `M_SKILLS_REPO_DIR` 显式指定本地仓库根目录。如果 Bitwarden vault 为 `locked`，脚本会自动执行 `bw unlock --raw`，将返回的 session 写入 `~/.config/m_skill_auths/bw_session`，并设置当前安装进程的 `BW_SESSION` 供后续读取 GitHub token 使用。如果 vault 已是 `unlocked` 但当前进程缺少 `BW_SESSION`，脚本会先尝试载入 `~/.config/m_skill_auths/bw_session`，仍不可用时重新执行 `bw unlock --raw`。
 
 非交互环境可通过环境变量预设，例如：
 

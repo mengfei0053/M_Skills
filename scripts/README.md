@@ -80,7 +80,7 @@ curl -fsSL https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/mai
 | `M_SKILLS_INSTALL_TARGETS` | 跳过交互选择，指定安装目标；支持逗号或空格分隔，也支持 `all` | `agent,claude,cursor_skill` |
 | `M_SKILLS_REPO_DIR` | 显式指定 M_Skills 仓库根目录 | `/path/to/M_Skills` |
 | `M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS` | 跳过 `playwright-cli install` 浏览器依赖安装 | `1` |
-| `BW_SESSION` | Bitwarden 解锁会话；用于读取 `github_gh_token`。如果 vault 为 `locked`，脚本会自动设置当前安装进程的 `BW_SESSION` 并写入 `~/.config/m_skill_auths/bw_session` | `$(bw unlock --raw)` |
+| `BW_SESSION` | Bitwarden 解锁会话；用于读取 `github_gh_token`。如果环境变量为空，脚本会先尝试从 `~/.config/m_skill_auths/bw_session` 载入；仍不可用时执行 `bw unlock --raw` 并写回该文件 | `$(bw unlock --raw)` |
 
 示例：
 
@@ -118,7 +118,7 @@ python3 scripts/install-user-skills.py
 | 软件 / 命令 | 脚本会检查什么 | 是否自动安装 | 失败或缺失时行为 |
 |---|---|---|---|
 | Bitwarden CLI `bw` | `command -v bw` 与 `bw status --raw`；纯文本或 JSON `status` 必须是 `locked` / `unlocked` | 否 | 未安装或未登录时停止；`locked` 时自动执行 `bw unlock --raw` |
-| GitHub CLI `gh` | `command -v gh` | 仅 Linux 上尝试自动安装 | Linux 无法安装时提示失败；非 Linux 提示手动安装，但直接文件复制安装仍保留 |
+| GitHub CLI `gh` | `command -v gh` | macOS / Linux 尝试自动安装 | macOS 用 `brew install gh`；Linux 按官方包安装说明；Windows 提示手动安装，但直接文件复制安装仍保留 |
 | `gh skill` 子命令 | `gh skill --help` | 否 | 不可用时跳过 `gh skill install`，直接文件复制安装仍保留 |
 | GitLab CLI `glab` | `command -v glab` | 是：macOS 通过 `brew install glab`；Linux / Windows 从 GitLab 最新 release 下载匹配安装包 | 自动安装失败时提示从 <https://gitlab.com/gitlab-org/cli/-/releases> 手动下载 |
 | Node.js `node` | `command -v node` | 否 | 缺失时跳过 Playwright CLI 安装并提示需要 Node.js 18+ |
@@ -128,7 +128,7 @@ python3 scripts/install-user-skills.py
 | IMA Skill `ima-skill` | 访问 IMA agent-interface，解析并下载官方 `ima-skills` zip | 是，下载并复制 skill 目录 | 下载、解析或解压失败时记录失败并提示后续手动修复 |
 | IMA 凭证目录 | 检查 `~/.config/ima/client_id` 与 `~/.config/ima/api_key` 是否已存在且非空 | 部分自动：创建目录和文件，但凭证需用户输入 | 非交互环境无法输入时打印摘要并以非零状态退出 |
 | Bitwarden session 文件 | `bw unlock --raw` 返回的 session | 是，仅 vault 为 `locked` 并解锁成功时写入 | 写入 `~/.config/m_skill_auths/bw_session`，并同步设置当前进程环境变量 `BW_SESSION` |
-| GitHub token 文件 | 用 `bw get password github_gh_token --session "$BW_SESSION"` 读取并写入 `~/.config/m_skill_auths/gh_token` | 是，依赖已设置的 `BW_SESSION` | `BW_SESSION` 缺失、Bitwarden 条目缺失或 token 为空时停止并提示修复 |
+| GitHub token 文件 | 用 `bw get password github_gh_token --session "$BW_SESSION"` 读取并写入 `~/.config/m_skill_auths/gh_token` | 是，依赖可用的 `BW_SESSION` | session 缺失时自动读取 `bw_session` 文件或重新 unlock；Bitwarden 条目缺失或 token 为空时停止并提示修复 |
 | GitHub CLI 登录 | `gh auth status` | 仅未登录时自动登录 | 未登录时执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`；失败则停止 |
 
 ## 外部依赖行为
@@ -141,12 +141,14 @@ python3 scripts/install-user-skills.py
 - `bw status --raw` 输出 `unauthenticated`：脚本立即停止，并提示先运行 `bw login`。
 - `bw status --raw` 输出 `locked` / `unlocked`，或返回包含 `status: "locked"` / `status: "unlocked"` 的 JSON：视为已登录。
 - 状态为 `locked` 时，脚本会自动执行 `bw unlock --raw`，让用户输入 Bitwarden 主密码；解锁成功后会把返回的 session 写入 `~/.config/m_skill_auths/bw_session`，并同步设置当前安装进程的 `BW_SESSION` 后继续执行。
+- 状态为 `unlocked` 但当前进程没有 `BW_SESSION` 时，脚本会先读取 `~/.config/m_skill_auths/bw_session`；如果仍没有可用 session，则自动执行 `bw unlock --raw`。
 
 ### GitHub CLI
 
 - 如果 `gh` 已存在，脚本会直接记录路径。
+- macOS 上若 `gh` 不存在，脚本会使用 Homebrew 执行 `brew install gh`。
 - Linux 上若 `gh` 不存在，脚本会尝试按官方 Linux 安装说明使用 `apt`、`dnf`、`yum` 或 `zypper` 安装。
-- 非 Linux 平台不会自动安装 `gh`，只会提示用户手动安装。
+- Windows 上不会自动安装 `gh`，只会提示用户手动安装。
 - 如果 `gh skill --help` 可用，脚本会额外尝试 `gh skill install --from-local`。
 - 即使 `gh skill` 不可用，直接文件复制安装结果仍会保留。
 - 安装完成后，脚本会从 Bitwarden 条目 `github_gh_token` 读取 token，写入 `~/.config/m_skill_auths/gh_token`。
