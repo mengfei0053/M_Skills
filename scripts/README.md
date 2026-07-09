@@ -14,7 +14,7 @@
 6. 检查或安装 GitLab CLI `glab`。
 7. 全局安装 `@playwright/cli`，同步 `playwright-cli` skill，并引导安装 Playwright 浏览器依赖。
 8. 从 IMA agent-interface 下载并安装官方 `ima-skill`。
-9. 通过交互式 stdin 或 `/dev/tty` 写入 IMA Client ID / API Key 到 `~/.config/ima/`。
+9. 可选写入 IMA Client ID / API Key 到 `~/.config/ima/`；用户可直接回车跳过，无可用 `/dev/tty` 时自动跳过。
 10. Bitwarden session 可用后先执行 `bw sync --session "$BW_SESSION"` 同步 vault，再通过 `bw get password github_gh_token --session "$BW_SESSION"` 读取 GitHub token，写入 `~/.config/m_skill_auths/gh_token`。
 11. 如果 `gh` 尚未登录，通过 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token` 完成登录。
 12. 询问是否登录 GitLab CLI；如果用户选择登录，则用同样方式从 Bitwarden 读取 `gitlab_glab_token`，写入 `~/.config/m_skill_auths/glab_token`，并执行 `glab auth login --hostname <host> --stdin < ~/.config/m_skill_auths/glab_token`。
@@ -132,7 +132,7 @@ python3 scripts/install-user-skills.py
 | Playwright CLI `playwright-cli` | 全局安装 `@playwright/cli` 后检查 `command -v playwright-cli` | 是，通过 `npm install -g @playwright/cli@latest` | 安装失败或命令不可用时跳过 Playwright skill / 浏览器依赖并提示手动安装 |
 | Playwright 浏览器依赖 | 执行 `playwright-cli install` | 是，可用 `M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS=1` 跳过 | 超时或失败时仅记录警告；CLI 与 skill 已安装时仍视为可继续 |
 | IMA Skill `ima-skill` | 访问 IMA agent-interface，解析并下载官方 `ima-skills` zip | 是，下载并复制 skill 目录 | 下载、解析或解压失败时记录失败并提示后续手动修复 |
-| IMA 凭证目录 | 检查 `~/.config/ima/client_id` 与 `~/.config/ima/api_key` 是否已存在且非空 | 部分自动：创建目录和文件，但凭证需用户输入 | 管道运行时从 `/dev/tty` 读取；无可用 `/dev/tty` 的非交互环境会打印摘要并以非零状态退出 |
+| IMA 凭证目录 | 检查 `~/.config/ima/client_id` 与 `~/.config/ima/api_key` 是否已存在且非空 | 部分自动：创建目录和文件；凭证可选输入 | 管道运行时从 `/dev/tty` 读取；直接回车或无可用 `/dev/tty` 时跳过，不阻断后续安装 |
 | Bitwarden session 文件 | `bw unlock --raw` 返回的 session | 是，仅缺少有效 session 并解锁成功时写入 | 写入 `~/.config/m_skill_auths/bw_session`，并同步设置当前进程环境变量 `BW_SESSION` |
 | GitHub token 文件 | 先执行 `bw sync --session "$BW_SESSION"`，再用 `bw get password github_gh_token --session "$BW_SESSION"` 读取并写入 `~/.config/m_skill_auths/gh_token` | 是，依赖可用的 `BW_SESSION` | session 缺失时自动读取 `bw_session` 文件或重新 unlock；sync 失败、Bitwarden 条目缺失或 token 为空时停止并提示修复 |
 | GitHub CLI 登录 | `gh auth status` | 仅未登录时自动登录 | 未登录时执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`；失败则停止 |
@@ -201,7 +201,7 @@ Linux 上会自动设置 `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-<arch>` 
 ~/.config/ima/api_key
 ```
 
-如果凭证文件已存在且非空，脚本会跳过重新输入。通过 `curl | python3` 等管道运行时，IMA 凭证输入会从 `/dev/tty` 读取；只有当前环境没有可用 `/dev/tty` 时才会失败。
+如果凭证文件已存在且非空，脚本会跳过重新输入。通过 `curl | python3` 等管道运行时，IMA 凭证输入会从 `/dev/tty` 读取；直接回车会跳过配置，当前环境没有可用 `/dev/tty` 时也会自动跳过，不影响后续 GitHub/GitLab token 导出。
 
 ## 验证安装
 
@@ -266,7 +266,7 @@ PY
 
 ### 非交互环境为什么失败？
 
-直接文件复制、GitHub CLI、Playwright 和 IMA skill 下载可以在非交互环境中运行，但脚本仍要求本机已安装并登录 Bitwarden CLI。需要人工输入的 Bitwarden unlock、IMA 凭证和 GitLab 登录确认会优先从 `/dev/tty` 读取；如果当前环境没有可用 `/dev/tty`，脚本会打印摘要并以非零状态退出。
+直接文件复制、GitHub CLI、Playwright 和 IMA skill 下载可以在非交互环境中运行，但脚本仍要求本机已安装并登录 Bitwarden CLI。需要人工输入的 Bitwarden unlock 和 GitLab 登录确认会优先从 `/dev/tty` 读取；IMA 凭证是可选项，空输入或无可用 `/dev/tty` 时会跳过。若 Bitwarden 缺少可用 session 且无法打开 `/dev/tty` 输入主密码，脚本会打印摘要并以非零状态退出。
 
 ### 为什么跳过了 gh skill？
 

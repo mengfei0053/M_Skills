@@ -39,7 +39,7 @@ Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`
 
 脚本要求已安装并登录 Bitwarden CLI `bw`；未安装时请从 <https://github.com/bitwarden/clients/releases> 下载，安装后运行 `bw login`。如果 Bitwarden vault 是 `locked`，脚本会先复用环境变量 `BW_SESSION` 或 `~/.config/m_skill_auths/bw_session` 中未过期的 session；仍不可用时才执行 `bw unlock --raw`，让用户输入主密码，打印脱敏后的 session 预览，把完整 session 写入 `~/.config/m_skill_auths/bw_session`，并设置当前安装进程的 `BW_SESSION`。
 
-通过 `curl | python3` 等管道运行时，安装目标选择会自动进入非交互默认值；Bitwarden unlock、IMA Client ID / API Key、GitLab 登录确认等必须人工输入的步骤会从 `/dev/tty` 读取，因此普通本地终端中仍可完成。只有当前环境没有可用 `/dev/tty` 时，才需要先在本地终端执行 `export BW_SESSION=$(bw unlock --raw)` 或改用本地文件运行脚本。脚本会自动查找包含 `skills/<skill>/SKILL.md` 的仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/` 内容安装；也可设置 `M_SKILLS_REPO_DIR=/path/to/M_Skills` 显式指定本地仓库。
+通过 `curl | python3` 等管道运行时，安装目标选择会自动进入非交互默认值；Bitwarden unlock、GitLab 登录确认等必须人工输入的步骤会从 `/dev/tty` 读取，因此普通本地终端中仍可完成。IMA Client ID / API Key 为可选配置，可直接回车跳过；当前环境没有可用 `/dev/tty` 时也会自动跳过 IMA 凭证配置。脚本会自动查找包含 `skills/<skill>/SKILL.md` 的仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/` 内容安装；也可设置 `M_SKILLS_REPO_DIR=/path/to/M_Skills` 显式指定本地仓库。
 
 脚本末尾还会：
 
@@ -47,7 +47,7 @@ Windows / Linux / macOS 均支持；若 `python` 不可用，请改用 `python3`
 2. 参考 [`gh skill`](https://cli.github.com/manual/gh_skill) 预览能力，用 `gh skill install --from-local --dir ... --force` 将本仓库 skills 安装到所选目标目录（直接文件复制仍作为基础安装路径）。
 3. 检查/安装 [GitLab CLI `glab`](https://gitlab.com/gitlab-org/cli/-/releases)：macOS 通过 Homebrew，Linux / Windows 从最新 release 下载匹配安装包。
 4. 从 [playwright-cli](https://github.com/microsoft/playwright-cli) 全局安装 `@playwright/cli`，并将 `playwright-cli` skill 同步到用户级 skills 目录。
-5. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 安装官方 `ima-skill`，并通过 stdin 或 `/dev/tty` 提示配置 IMA Client ID / API Key（写入 `~/.config/ima/`）。
+5. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 安装官方 `ima-skill`，并可选配置 IMA Client ID / API Key（直接回车或无可用 TTY 时跳过，已配置时写入 `~/.config/ima/`）。
 6. 安装完成后先执行 `bw sync --session "$BW_SESSION"` 同步 Bitwarden vault，再使用 `BW_SESSION` 读取 `github_gh_token`，写入 `~/.config/m_skill_auths/gh_token`；如果 `gh` 未登录，则执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`。
 7. 询问是否登录 GitLab CLI；如果用户选择登录，则从 Bitwarden 读取 `gitlab_glab_token`，写入 `~/.config/m_skill_auths/glab_token`，并执行 `glab auth login --hostname <host> --stdin < ~/.config/m_skill_auths/glab_token`。
 

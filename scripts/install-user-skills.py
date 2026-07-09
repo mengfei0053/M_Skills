@@ -1473,30 +1473,10 @@ def can_prompt_from_terminal() -> bool:
         return False
 
 
-def require_interactive_terminal() -> bool:
-    if can_prompt_from_terminal():
-        return True
-    print(
-        "错误: 需要交互式终端或可用 /dev/tty 才能输入 IMA API Key。",
-        file=sys.stderr,
-    )
-    print(
-        "请在本地终端执行: python scripts/install-user-skills.py；"
-        "或确保管道运行时可访问 /dev/tty。",
-        file=sys.stderr,
-    )
-    return False
-
-
-def prompt_non_empty(label: str, *, secret: bool = False) -> str:
-    while True:
-        if secret:
-            value = getpass.getpass(label)
-        else:
-            value = prompt_line_with_tty(label)
-        if value.strip():
-            return value.strip()
-        print("输入不能为空，请重新输入。")
+def prompt_optional(label: str, *, secret: bool = False) -> str:
+    if secret:
+        return getpass.getpass(label).strip()
+    return prompt_line_with_tty(label).strip()
 
 
 def prompt_line_with_tty(label: str, default: str = "") -> str:
@@ -1808,19 +1788,16 @@ def export_gitlab_token_from_bitwarden(report: InstallReport, hostname: str) -> 
 
 
 def prompt_ima_api_credentials(report: InstallReport) -> bool:
-    if not require_interactive_terminal():
-        return False
-
     config_dir = ima_config_dir()
     client_id_file = config_dir / "client_id"
     api_key_file = config_dir / "api_key"
     secure_dir(config_dir)
 
-    if (
-        client_id_file.is_file()
-        and client_id_file.stat().st_size > 0
-        and api_key_file.is_file()
-        and api_key_file.stat().st_size > 0
+    def credential_file_is_non_empty(path: Path) -> bool:
+        return path.is_file() and path.stat().st_size > 0
+
+    if credential_file_is_non_empty(client_id_file) and credential_file_is_non_empty(
+        api_key_file
     ):
         print(
             f"IMA 凭证已存在 ({config_dir})，如需更新请删除 client_id / api_key 后重新运行。"
@@ -1828,22 +1805,36 @@ def prompt_ima_api_credentials(report: InstallReport) -> bool:
         report.ima_credentials_configured = True
         return True
 
+    if not can_prompt_from_terminal():
+        print(
+            "未检测到交互式终端或可用 /dev/tty，跳过可选 IMA API 凭证配置。"
+        )
+        return True
+
     print("")
-    print("=== IMA API 凭证配置（交互式输入）===")
+    print("=== IMA API 凭证配置（可选，可直接回车跳过）===")
     print(f"请在浏览器打开 {IMA_AGENT_INTERFACE_URL} 获取 Client ID 与 API Key。")
     print(f"凭证将保存到 {config_dir}/（client_id、api_key）。")
+    print("留空会跳过 IMA 凭证配置，后续可重新运行本脚本或手动写入。")
     print("")
 
-    if not (client_id_file.is_file() and client_id_file.stat().st_size > 0):
-        secure_write(client_id_file, prompt_non_empty("请输入 IMA Client ID: "))
+    if not credential_file_is_non_empty(client_id_file):
+        client_id = prompt_optional("请输入 IMA Client ID（可留空跳过）: ")
+        if client_id:
+            secure_write(client_id_file, client_id)
 
-    if not (api_key_file.is_file() and api_key_file.stat().st_size > 0):
-        secure_write(
-            api_key_file, prompt_non_empty("请输入 IMA API Key: ", secret=True)
-        )
+    if not credential_file_is_non_empty(api_key_file):
+        api_key = prompt_optional("请输入 IMA API Key（可留空跳过）: ", secret=True)
+        if api_key:
+            secure_write(api_key_file, api_key)
 
-    print(f"IMA 凭证已保存到 {config_dir}。")
-    report.ima_credentials_configured = True
+    if credential_file_is_non_empty(client_id_file) and credential_file_is_non_empty(
+        api_key_file
+    ):
+        print(f"IMA 凭证已保存到 {config_dir}。")
+        report.ima_credentials_configured = True
+    else:
+        print("IMA 凭证未完整配置，已跳过。")
     return True
 
 
