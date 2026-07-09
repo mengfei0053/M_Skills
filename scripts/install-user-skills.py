@@ -80,6 +80,7 @@ TARGET_ENV_VAR = "M_SKILLS_INSTALL_TARGETS"
 REPO_DIR_ENV_VAR = "M_SKILLS_REPO_DIR"
 SKIP_PLAYWRIGHT_BROWSERS_ENV_VAR = "M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS"
 GITLAB_HOST_ENV_VAR = "M_SKILLS_GITLAB_HOST"
+GITLAB_API_PROTOCOL_ENV_VAR = "M_SKILLS_GITLAB_API_PROTOCOL"
 PLAYWRIGHT_INSTALL_TIMEOUT_SECONDS = 300
 ALLOWED_DOWNLOAD_HOSTS = frozenset(
     {
@@ -1508,6 +1509,40 @@ def prompt_gitlab_hostname() -> str:
     return prompt_line_with_tty(f"GitLab hostname [{default_host}]: ", default_host)
 
 
+def normalize_gitlab_api_protocol(raw: str) -> str:
+    protocol = raw.strip().lower()
+    if protocol in {"http", "https"}:
+        return protocol
+    raise ValueError("GitLab API protocol must be http or https")
+
+
+def default_gitlab_api_protocol() -> str:
+    configured = os.environ.get(GITLAB_API_PROTOCOL_ENV_VAR, "").strip()
+    if not configured:
+        return "https"
+    try:
+        return normalize_gitlab_api_protocol(configured)
+    except ValueError:
+        print(
+            f"警告: {GITLAB_API_PROTOCOL_ENV_VAR}={configured!r} 无效，使用默认 https。",
+            file=sys.stderr,
+        )
+        return "https"
+
+
+def prompt_gitlab_api_protocol() -> str:
+    default_protocol = default_gitlab_api_protocol()
+    while True:
+        answer = prompt_line_with_tty(
+            f"GitLab API protocol [{default_protocol}] (http/https): ",
+            default_protocol,
+        )
+        try:
+            return normalize_gitlab_api_protocol(answer)
+        except ValueError as exc:
+            print(f"无效 GitLab API protocol: {exc}")
+
+
 def github_cli_is_authenticated(gh_path: str) -> bool:
     return command_succeeds([gh_path, "auth", "status"])
 
@@ -1552,7 +1587,9 @@ def gitlab_cli_is_authenticated(glab_path: str, hostname: str) -> bool:
     return command_succeeds([glab_path, "auth", "status", "--hostname", hostname])
 
 
-def login_gitlab_cli_with_token(token_path: Path, hostname: str) -> bool:
+def login_gitlab_cli_with_token(
+    token_path: Path, hostname: str, api_protocol: str
+) -> bool:
     glab_path = which("glab")
     if glab_path is None:
         print(
@@ -1568,7 +1605,16 @@ def login_gitlab_cli_with_token(token_path: Path, hostname: str) -> bool:
     try:
         with token_path.open("r", encoding="utf-8") as token_handle:
             result = subprocess.run(
-                [glab_path, "auth", "login", "--hostname", hostname, "--stdin"],
+                [
+                    glab_path,
+                    "auth",
+                    "login",
+                    "--hostname",
+                    hostname,
+                    "--api-protocol",
+                    api_protocol,
+                    "--stdin",
+                ],
                 stdin=token_handle,
                 capture_output=True,
                 text=True,
@@ -1584,7 +1630,9 @@ def login_gitlab_cli_with_token(token_path: Path, hostname: str) -> bool:
         print(f"错误: `glab auth login --stdin` 执行失败: {stderr}", file=sys.stderr)
         return False
 
-    print(f"GitLab CLI 已通过 ~/.config/m_skill_auths/glab_token 登录 {hostname}。")
+    print(
+        f"GitLab CLI 已通过 ~/.config/m_skill_auths/glab_token 登录 {api_protocol}://{hostname}。"
+    )
     return True
 
 
@@ -1699,7 +1747,9 @@ def export_github_token_from_bitwarden(report: InstallReport) -> bool:
     return True
 
 
-def export_gitlab_token_from_bitwarden(report: InstallReport, hostname: str) -> bool:
+def export_gitlab_token_from_bitwarden(
+    report: InstallReport, hostname: str, api_protocol: str
+) -> bool:
     bw_path = which("bw")
     if bw_path is None:
         print(
@@ -1780,7 +1830,7 @@ def export_gitlab_token_from_bitwarden(report: InstallReport, hostname: str) -> 
     secure_write(token_path, token + "\n")
     print(f"GitLab token 已写入: {token_path}")
 
-    if not login_gitlab_cli_with_token(token_path, hostname):
+    if not login_gitlab_cli_with_token(token_path, hostname, api_protocol):
         return False
 
     report.glab_token_configured = True
@@ -1981,7 +2031,8 @@ def main() -> int:
         "是否使用 Bitwarden 中的 gitlab_glab_token 登录 GitLab CLI (glab)?"
     ):
         hostname = prompt_gitlab_hostname()
-        if not export_gitlab_token_from_bitwarden(report, hostname):
+        api_protocol = prompt_gitlab_api_protocol()
+        if not export_gitlab_token_from_bitwarden(report, hostname, api_protocol):
             print_install_summary(report)
             return 1
     else:

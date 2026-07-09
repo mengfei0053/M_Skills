@@ -60,7 +60,7 @@ M_Skills/
 5. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 页面解析最新 `ima-skills` 压缩包地址并下载安装到用户级 skills 目录（含 `ima-skill` 完整目录树）。
 6. 可选配置 IMA **Client ID** 与 **API Key**：交互式 stdin 或 `/dev/tty` 可用时提示输入，直接回车可跳过；已配置时写入 `~/.config/ima/client_id` 与 `~/.config/ima/api_key`（已存在则跳过）。
 7. 安装完成后先执行 `bw sync --session "$BW_SESSION"` 同步 Bitwarden vault，再执行 `bw get password github_gh_token --session "$BW_SESSION"`，将 GitHub token 写入 `~/.config/m_skill_auths/gh_token`；如果 `gh auth status` 显示未登录，则执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`。
-8. 询问是否登录 GitLab CLI；如果用户选择登录，则执行 `bw get password gitlab_glab_token --session "$BW_SESSION"`，将 GitLab token 写入 `~/.config/m_skill_auths/glab_token`，并执行 `glab auth login --hostname <host> --stdin < ~/.config/m_skill_auths/glab_token`。host 默认 `gitlab.com`，可交互输入或用 `M_SKILLS_GITLAB_HOST` 预设。
+8. 询问是否登录 GitLab CLI；如果用户选择登录，则执行 `bw get password gitlab_glab_token --session "$BW_SESSION"`，将 GitLab token 写入 `~/.config/m_skill_auths/glab_token`，并执行 `glab auth login --hostname <host> --api-protocol <http|https> --stdin < ~/.config/m_skill_auths/glab_token`。host 默认 `gitlab.com`，填裸主机名或 `host:port`，不要带协议；API protocol 默认 `https`，可交互选择或用 `M_SKILLS_GITLAB_API_PROTOCOL` 预设。
 
 脚本开始时会交互选择安装目标（Agent / Claude / OpenCode / OpenClaw / Cursor Skill）。脚本会从脚本所在目录、当前工作目录及其父目录自动查找包含 `skills/<skill>/SKILL.md` 的 M_Skills 仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/` 内容安装。可用 `M_SKILLS_REPO_DIR` 显式指定本地仓库根目录。
 

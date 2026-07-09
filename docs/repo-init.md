@@ -51,7 +51,7 @@ M_Skills 是个人常用 Skills 收集仓库，用于沉淀可复用的工作流
 python scripts/install-user-skills.py
 ```
 
-`curl | python3` 管道运行受支持：安装目标选择默认全选，需要用户输入的 Bitwarden unlock、GitLab 登录确认和 hostname 会从 `/dev/tty` 读取；IMA 凭证配置为可选项，可直接回车跳过，无可用 `/dev/tty` 时也不阻断后续安装。
+`curl | python3` 管道运行受支持：安装目标选择默认全选，需要用户输入的 Bitwarden unlock、GitLab 登录确认、GitLab hostname 和 API protocol 会从 `/dev/tty` 读取；IMA 凭证配置为可选项，可直接回车跳过，无可用 `/dev/tty` 时也不阻断后续安装。
 
 ## 修改同步规则
 
