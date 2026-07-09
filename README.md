@@ -99,6 +99,7 @@ M_Skills/
 │   ├── apply-worktree/
 │   ├── auto-commit-push/
 │   ├── deeb-init/
+│   ├── github-search/
 │   ├── karpathy-guidelines/
 │   ├── programming-standards/
 │   └── worktree/
@@ -112,6 +113,7 @@ M_Skills/
 | Apply Worktree | `skills/apply-worktree/` | 将 Git worktree 中完成的任务分支合并回主项目，并在验证后清理 worktree |
 | Auto Commit Push | `skills/auto-commit-push/` | 安全审查、提交并推送当前任务相关改动，分叉时先 rebase，冲突时停止报告 |
 | Deeb Init | `skills/deeb-init/` | 深度扫描项目结构与技术栈，生成或刷新根目录及子目录 `AGENTS.md` |
+| GitHub Search | `skills/github-search/` | 通过 GitHub CLI `gh search` 搜索仓库、代码、Issue、PR 和 Commit，并规范过滤与输出 |
 | Karpathy Guidelines | `skills/karpathy-guidelines/` | 减少 LLM 常见编码失误的行为准则：先思考、保持简单、精准改动、目标驱动验证 |
 | Programming Standards | `skills/programming-standards/` | 通用编程规范，覆盖职责、命名、防御性编程、错误处理、日志和可测试性 |
 | Worktree | `skills/worktree/` | 为单个需求创建独立 Git worktree 和任务分支，隔离开发过程 |

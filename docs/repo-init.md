@@ -35,6 +35,7 @@ M_Skills 是个人常用 Skills 收集仓库，用于沉淀可复用的工作流
 | `apply-worktree` | `skills/apply-worktree/SKILL.md` | 用户级通用 | 将 worktree 开发内容合并回主项目分支，验证后清理 worktree 和任务分支 |
 | `auto-commit-push` | `skills/auto-commit-push/SKILL.md` | 用户级通用 | 安全提交当前任务相关改动并推送，处理 fetch / rebase / 分叉场景 |
 | `deeb-init` | `skills/deeb-init/SKILL.md` | 用户级通用 | 深度扫描项目并生成/刷新根目录及 scoped 子目录 `AGENTS.md` |
+| `github-search` | `skills/github-search/SKILL.md` | 用户级通用 | 使用 GitHub CLI `gh search` 搜索仓库、代码、Issue、PR 和 Commit |
 | `karpathy-guidelines` | `skills/karpathy-guidelines/SKILL.md` | 用户级通用 | 减少 LLM 常见编码失误：先思考、保持简单、精准改动、目标驱动验证 |
 | `programming-standards` | `skills/programming-standards/SKILL.md` | 用户级通用 | 通用代码质量、命名、错误处理、测试性和 Review 标准 |
 | `worktree` | `skills/worktree/SKILL.md` | 用户级通用 | 为单个需求创建隔离 Git worktree 与任务分支 |
