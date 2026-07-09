@@ -58,11 +58,13 @@ M_Skills/
 3. 检查/安装 [GitLab CLI `glab`](https://gitlab.com/gitlab-org/cli/-/releases)：macOS 使用 `brew install glab`，Linux / Windows 从最新 release 下载匹配安装包并安装。
 4. 全局安装 [@playwright/cli](https://github.com/microsoft/playwright-cli)，将 `playwright-cli` skill 复制到用户级 skills 目录，并执行 `playwright-cli install` 引导浏览器依赖；Linux 会预先使用 `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-<arch>` 避免 Ubuntu 26.04 ffmpeg 不支持报错。该步骤有 300 秒超时；如需完全跳过，可设置 `M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS=1`，脚本不会把 CLI 与 skill 安装标为失败。
 5. 从 [ima.qq.com/agent-interface](https://ima.qq.com/agent-interface) 页面解析最新 `ima-skills` 压缩包地址并下载安装到用户级 skills 目录（含 `ima-skill` 完整目录树）。
-6. 交互提示输入 IMA **Client ID** 与 **API Key**，写入 `~/.config/ima/client_id` 与 `~/.config/ima/api_key`（已存在则跳过）。
+6. 通过交互式 stdin 或 `/dev/tty` 提示输入 IMA **Client ID** 与 **API Key**，写入 `~/.config/ima/client_id` 与 `~/.config/ima/api_key`（已存在则跳过）。
 7. 安装完成后先执行 `bw sync --session "$BW_SESSION"` 同步 Bitwarden vault，再执行 `bw get password github_gh_token --session "$BW_SESSION"`，将 GitHub token 写入 `~/.config/m_skill_auths/gh_token`；如果 `gh auth status` 显示未登录，则执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`。
 8. 询问是否登录 GitLab CLI；如果用户选择登录，则执行 `bw get password gitlab_glab_token --session "$BW_SESSION"`，将 GitLab token 写入 `~/.config/m_skill_auths/glab_token`，并执行 `glab auth login --hostname <host> --stdin < ~/.config/m_skill_auths/glab_token`。host 默认 `gitlab.com`，可交互输入或用 `M_SKILLS_GITLAB_HOST` 预设。
 
-脚本开始时会交互选择安装目标（Agent / Claude / OpenCode / OpenClaw / Cursor Skill）。脚本会从脚本所在目录、当前工作目录及其父目录自动查找包含 `skills/<skill>/SKILL.md` 的 M_Skills 仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/` 内容安装。可用 `M_SKILLS_REPO_DIR` 显式指定本地仓库根目录。如果 Bitwarden vault 为 `locked`，脚本会先尝试验证并复用环境变量 `BW_SESSION` 或 `~/.config/m_skill_auths/bw_session`，仍不可用时重新执行 `bw unlock --raw`；解锁成功后会打印脱敏后的 session 预览，将完整 session 写入 `~/.config/m_skill_auths/bw_session`，并设置当前安装进程的 `BW_SESSION` 供后续读取 GitHub token 使用。通过 `curl | python3` 等管道运行且当前环境没有可用 `/dev/tty` 时，请先在本地终端执行 `export BW_SESSION=$(bw unlock --raw)`。脚本执行下载时会显示下载 URL、目标文件名、已下载大小和百分比（当服务端返回总大小时）。
+脚本开始时会交互选择安装目标（Agent / Claude / OpenCode / OpenClaw / Cursor Skill）。脚本会从脚本所在目录、当前工作目录及其父目录自动查找包含 `skills/<skill>/SKILL.md` 的 M_Skills 仓库根目录；如果脚本被复制、软链或通过 `curl` 单文件运行且本地没有仓库，会从 GitHub raw/API 拉取 `skills/` 内容安装。可用 `M_SKILLS_REPO_DIR` 显式指定本地仓库根目录。
+
+通过 `curl | python3` 等管道运行时，安装目标选择会自动进入非交互默认值；需要人工输入的 Bitwarden unlock、IMA 凭证、GitLab 登录确认和 hostname 会优先从 `/dev/tty` 读取，因此普通本地终端管道运行可继续完成。如果 Bitwarden vault 为 `locked`，脚本会先尝试验证并复用环境变量 `BW_SESSION` 或 `~/.config/m_skill_auths/bw_session`，仍不可用时重新执行 `bw unlock --raw`；解锁成功后会打印脱敏后的 session 预览，将完整 session 写入 `~/.config/m_skill_auths/bw_session`，并设置当前安装进程的 `BW_SESSION`。当前环境没有可用 `/dev/tty` 时，请先在本地终端执行 `export BW_SESSION=$(bw unlock --raw)`，或下载脚本后用本地终端直接运行。脚本执行下载时会显示下载 URL、目标文件名、已下载大小和百分比（当服务端返回总大小时）。
 
 非交互环境可通过环境变量预设，例如：
 

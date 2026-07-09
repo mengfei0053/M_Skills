@@ -1459,11 +1459,32 @@ def install_ima_skills(report: InstallReport, targets: set[str]) -> bool:
     return True
 
 
-def require_interactive_terminal() -> bool:
+def can_prompt_from_terminal() -> bool:
     if sys.stdin.isatty():
         return True
-    print("错误: 需要交互式终端才能输入 IMA API Key。", file=sys.stderr)
-    print("请在本地终端执行: python scripts/install-user-skills.py", file=sys.stderr)
+
+    if os.name == "nt":
+        return False
+
+    try:
+        with Path("/dev/tty").open("r", encoding="utf-8"):
+            return True
+    except OSError:
+        return False
+
+
+def require_interactive_terminal() -> bool:
+    if can_prompt_from_terminal():
+        return True
+    print(
+        "错误: 需要交互式终端或可用 /dev/tty 才能输入 IMA API Key。",
+        file=sys.stderr,
+    )
+    print(
+        "请在本地终端执行: python scripts/install-user-skills.py；"
+        "或确保管道运行时可访问 /dev/tty。",
+        file=sys.stderr,
+    )
     return False
 
 
@@ -1472,7 +1493,7 @@ def prompt_non_empty(label: str, *, secret: bool = False) -> str:
         if secret:
             value = getpass.getpass(label)
         else:
-            value = input(label)
+            value = prompt_line_with_tty(label)
         if value.strip():
             return value.strip()
         print("输入不能为空，请重新输入。")
