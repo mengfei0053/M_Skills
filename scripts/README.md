@@ -25,7 +25,7 @@
 Bitwarden CLI 是必需前置条件。运行安装脚本前必须满足：
 
 1. 已安装 `bw` 命令。
-2. `bw status --raw` 输出为 `locked` / `unlocked`，或返回 JSON 且其中 `status` 字段为 `locked` / `unlocked`。如果状态是 `locked`，脚本会自动执行 `bw unlock --raw`，让用户输入 Bitwarden 主密码，打印脱敏后的 session 预览，把完整 session 写入 `~/.config/m_skill_auths/bw_session`，并设置当前安装进程的 `BW_SESSION`。
+2. `bw status --raw` 输出为 `locked` / `unlocked`，或返回 JSON 且其中 `status` 字段为 `locked` / `unlocked`。如果状态是 `locked`，脚本会先尝试验证并复用环境变量 `BW_SESSION` 或 `~/.config/m_skill_auths/bw_session` 中未过期的 session；仍不可用时才执行 `bw unlock --raw`，让用户输入 Bitwarden 主密码，打印脱敏后的 session 预览，把完整 session 写入 `~/.config/m_skill_auths/bw_session`，并设置当前安装进程的 `BW_SESSION`。
 
 如果未安装，请从 Bitwarden clients releases 页面下载并安装：
 
@@ -81,7 +81,7 @@ curl -fsSL https://raw.githubusercontent.com/mengfei0053/M_Skills/refs/heads/mai
 | `M_SKILLS_INSTALL_TARGETS` | 跳过交互选择，指定安装目标；支持逗号或空格分隔，也支持 `all` | `agent,claude,cursor_skill` |
 | `M_SKILLS_REPO_DIR` | 显式指定 M_Skills 仓库根目录 | `/path/to/M_Skills` |
 | `M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS` | 跳过 `playwright-cli install` 浏览器依赖安装 | `1` |
-| `BW_SESSION` | Bitwarden 解锁会话；用于读取 `github_gh_token` / `gitlab_glab_token`。如果环境变量为空，脚本会先尝试从 `~/.config/m_skill_auths/bw_session` 载入；仍不可用时执行 `bw unlock --raw` 并写回该文件 | `$(bw unlock --raw)` |
+| `BW_SESSION` | Bitwarden 解锁会话；用于读取 `github_gh_token` / `gitlab_glab_token`。脚本会验证环境变量或 `~/.config/m_skill_auths/bw_session` 是否仍为 `unlocked`；不可用时执行 `bw unlock --raw` 并写回该文件。管道运行且无 `/dev/tty` 时请预先导出此变量 | `$(bw unlock --raw)` |
 | `M_SKILLS_GITLAB_HOST` | GitLab CLI 可选登录的默认 hostname | `gitlab.com` |
 
 示例：
@@ -123,7 +123,7 @@ python3 scripts/install-user-skills.py
 
 | 软件 / 命令 | 脚本会检查什么 | 是否自动安装 | 失败或缺失时行为 |
 |---|---|---|---|
-| Bitwarden CLI `bw` | `command -v bw` 与 `bw status --raw`；纯文本或 JSON `status` 必须是 `locked` / `unlocked` | 否 | 未安装或未登录时停止；`locked` 时自动执行 `bw unlock --raw` |
+| Bitwarden CLI `bw` | `command -v bw` 与 `bw status --raw`；纯文本或 JSON `status` 必须是 `locked` / `unlocked` | 否 | 未安装或未登录时停止；`locked` 时先复用有效 `BW_SESSION`，否则执行 `bw unlock --raw` |
 | GitHub CLI `gh` | `command -v gh` | macOS / Linux 尝试自动安装 | macOS 用 `brew install gh`；Linux 按官方包安装说明；Windows 提示手动安装，但直接文件复制安装仍保留 |
 | `gh skill` 子命令 | `gh skill --help` | 否 | 不可用时跳过 `gh skill install`，直接文件复制安装仍保留 |
 | GitLab CLI `glab` | `command -v glab` | 是：macOS 通过 `brew install glab`；Linux / Windows 从 GitLab 最新 release 下载匹配安装包 | 自动安装失败时提示从 <https://gitlab.com/gitlab-org/cli/-/releases> 手动下载 |
@@ -133,7 +133,7 @@ python3 scripts/install-user-skills.py
 | Playwright 浏览器依赖 | 执行 `playwright-cli install` | 是，可用 `M_SKILLS_SKIP_PLAYWRIGHT_BROWSERS=1` 跳过 | 超时或失败时仅记录警告；CLI 与 skill 已安装时仍视为可继续 |
 | IMA Skill `ima-skill` | 访问 IMA agent-interface，解析并下载官方 `ima-skills` zip | 是，下载并复制 skill 目录 | 下载、解析或解压失败时记录失败并提示后续手动修复 |
 | IMA 凭证目录 | 检查 `~/.config/ima/client_id` 与 `~/.config/ima/api_key` 是否已存在且非空 | 部分自动：创建目录和文件，但凭证需用户输入 | 非交互环境无法输入时打印摘要并以非零状态退出 |
-| Bitwarden session 文件 | `bw unlock --raw` 返回的 session | 是，仅 vault 为 `locked` 并解锁成功时写入 | 写入 `~/.config/m_skill_auths/bw_session`，并同步设置当前进程环境变量 `BW_SESSION` |
+| Bitwarden session 文件 | `bw unlock --raw` 返回的 session | 是，仅缺少有效 session 并解锁成功时写入 | 写入 `~/.config/m_skill_auths/bw_session`，并同步设置当前进程环境变量 `BW_SESSION` |
 | GitHub token 文件 | 先执行 `bw sync --session "$BW_SESSION"`，再用 `bw get password github_gh_token --session "$BW_SESSION"` 读取并写入 `~/.config/m_skill_auths/gh_token` | 是，依赖可用的 `BW_SESSION` | session 缺失时自动读取 `bw_session` 文件或重新 unlock；sync 失败、Bitwarden 条目缺失或 token 为空时停止并提示修复 |
 | GitHub CLI 登录 | `gh auth status` | 仅未登录时自动登录 | 未登录时执行 `gh auth login --with-token < ~/.config/m_skill_auths/gh_token`；失败则停止 |
 | GitLab token 文件 | 用户选择登录 glab 后，先执行 `bw sync --session "$BW_SESSION"`，再用 `bw get password gitlab_glab_token --session "$BW_SESSION"` 读取并写入 `~/.config/m_skill_auths/glab_token` | 是，依赖用户确认和可用的 `BW_SESSION` | 用户可跳过；token 缺失、为空或 sync 失败时停止并提示修复 |
@@ -148,8 +148,9 @@ python3 scripts/install-user-skills.py
 - 未找到 `bw`：脚本立即停止，并提示下载地址：<https://github.com/bitwarden/clients/releases>。
 - `bw status --raw` 输出 `unauthenticated`：脚本立即停止，并提示先运行 `bw login`。
 - `bw status --raw` 输出 `locked` / `unlocked`，或返回包含 `status: "locked"` / `status: "unlocked"` 的 JSON：视为已登录。
-- 状态为 `locked` 时，脚本会自动执行 `bw unlock --raw`，让用户输入 Bitwarden 主密码；解锁成功后会打印脱敏后的 session 预览，把完整 session 写入 `~/.config/m_skill_auths/bw_session`，并同步设置当前安装进程的 `BW_SESSION` 后继续执行。
-- 状态为 `unlocked` 但当前进程没有 `BW_SESSION` 时，脚本会先读取 `~/.config/m_skill_auths/bw_session`；如果仍没有可用 session，则自动执行 `bw unlock --raw`。
+- 状态为 `locked` 时，脚本会先验证并复用环境变量 `BW_SESSION` 或 `~/.config/m_skill_auths/bw_session` 中未过期的 session；仍没有可用 session 时才执行 `bw unlock --raw`，让用户输入 Bitwarden 主密码。
+- 解锁成功后会打印脱敏后的 session 预览，把完整 session 写入 `~/.config/m_skill_auths/bw_session`，并同步设置当前安装进程的 `BW_SESSION` 后继续执行。
+- 通过 `curl | python3` 等管道运行且当前环境没有可用 `/dev/tty` 时，请先在本地终端执行 `export BW_SESSION=$(bw unlock --raw)`，再运行安装脚本。
 
 ### GitHub CLI
 

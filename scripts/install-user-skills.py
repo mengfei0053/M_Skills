@@ -12,6 +12,7 @@ import shutil
 import stat
 import subprocess
 import sys
+from subprocess import TimeoutExpired
 import tarfile
 import tempfile
 import zipfile
@@ -517,11 +518,56 @@ def parse_bitwarden_status(raw_status: str) -> str:
     return lowered
 
 
+def bitwarden_session_status(bw_path: str, session: str) -> str:
+    if not session.strip():
+        return ""
+
+    try:
+        result = subprocess.run(
+            [bw_path, "status", "--raw", "--session", session],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except OSError:
+        return ""
+    except TimeoutExpired:
+        return ""
+
+    if result.returncode != 0:
+        return ""
+    return parse_bitwarden_status(result.stdout)
+
+
+def bitwarden_session_is_unlocked(bw_path: str, session: str, label: str) -> bool:
+    status = bitwarden_session_status(bw_path, session)
+    if status == "unlocked":
+        return True
+    if status:
+        print(
+            f"警告: {label} 中的 BW_SESSION 状态为 {status}，"
+            "将尝试其他 session 或重新解锁。",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            f"警告: {label} 中的 BW_SESSION 不可用或已过期，"
+            "将尝试其他 session 或重新解锁。",
+            file=sys.stderr,
+        )
+    return False
+
+
+def should_read_bitwarden_password_from_tty() -> bool:
+    return os.name != "nt" and not sys.stdin.isatty()
+
+
 def unlock_bitwarden_vault(bw_path: str) -> bool:
     print("Bitwarden vault 当前为 locked，正在执行 `bw unlock --raw`。")
     print("请按 Bitwarden CLI 提示输入主密码。")
     try:
-        if os.name != "nt" and not sys.stdin.isatty():
+        if should_read_bitwarden_password_from_tty():
             with Path("/dev/tty").open("r", encoding="utf-8") as stdin_handle:
                 result = subprocess.run(
                     [bw_path, "unlock", "--raw"],
@@ -539,8 +585,23 @@ def unlock_bitwarden_vault(bw_path: str) -> bool:
                 check=False,
                 timeout=120,
             )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        print(f"错误: 无法执行 `bw unlock --raw`: {exc}", file=sys.stderr)
+    except OSError:
+        error = sys.exc_info()[1]
+        print(f"错误: 无法执行 `bw unlock --raw`: {error}", file=sys.stderr)
+        if should_read_bitwarden_password_from_tty():
+            print(
+                "当前命令的标准输入不是交互式终端，且无法打开 /dev/tty 读取主密码。",
+                file=sys.stderr,
+            )
+            print(
+                "请先在本地终端执行 `export BW_SESSION=$(bw unlock --raw)`，再重新运行安装脚本；"
+                f"或确认 {bw_session_file()} 中保存的是未过期 session。",
+                file=sys.stderr,
+            )
+        return False
+    except TimeoutExpired:
+        error = sys.exc_info()[1]
+        print(f"错误: 无法执行 `bw unlock --raw`: {error}", file=sys.stderr)
         return False
 
     if result.returncode != 0:
@@ -563,10 +624,22 @@ def unlock_bitwarden_vault(bw_path: str) -> bool:
 
 
 def ensure_bw_session(bw_path: str, *, force_unlock: bool = False) -> bool:
-    if not force_unlock and os.environ.get("BW_SESSION", "").strip():
+    if force_unlock:
+        return unlock_bitwarden_vault(bw_path)
+
+    env_session = os.environ.get("BW_SESSION", "").strip()
+    if env_session and bitwarden_session_is_unlocked(
+        bw_path, env_session, "环境变量 BW_SESSION"
+    ):
         return True
-    if not force_unlock and load_persisted_bw_session():
-        return True
+
+    if load_persisted_bw_session():
+        file_session = os.environ.get("BW_SESSION", "").strip()
+        if bitwarden_session_is_unlocked(
+            bw_path, file_session, str(bw_session_file())
+        ):
+            return True
+
     return unlock_bitwarden_vault(bw_path)
 
 
@@ -627,7 +700,7 @@ def require_bitwarden_cli(report: InstallReport) -> bool:
         return False
 
     if status == "locked":
-        if not ensure_bw_session(bw_path, force_unlock=True):
+        if not ensure_bw_session(bw_path):
             report.tools["bw"] = "locked"
             return False
         status = "unlocked"
@@ -1199,7 +1272,6 @@ def install_repo_user_skills_with_gh(report: InstallReport, targets: set[str]) -
     )
     ok = True
     for skill_name in report.repo_skills:
-        skill_path = f"skills/{skill_name}/SKILL.md"
         for option in selected_target_options(targets):
             try:
                 run_command(
@@ -1208,7 +1280,7 @@ def install_repo_user_skills_with_gh(report: InstallReport, targets: set[str]) -
                         "skill",
                         "install",
                         str(local_repo),
-                        skill_path,
+                        skill_name,
                         "--from-local",
                         "--dir",
                         str(option.root()),
