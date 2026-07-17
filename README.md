@@ -106,7 +106,8 @@ M_Skills/
 │   ├── karpathy-guidelines/
 │   ├── programming-standards/
 │   ├── worktree/
-│   └── zentao-bug-comment/
+│   ├── zentao-bug-comment/
+│   └── zentao-bug-resolve/
 └── templates/        # 可复用配置或文档模板
 ```
 
@@ -122,6 +123,7 @@ M_Skills/
 | Programming Standards | `skills/programming-standards/` | 通用编程规范，覆盖职责、命名、防御性编程、错误处理、日志和可测试性 |
 | Worktree | `skills/worktree/` | 为单个需求创建独立 Git worktree 和任务分支，隔离开发过程 |
 | ZenTao Bug Comment | `skills/zentao-bug-comment/` | 通过会话登录与 action/comment 接口给禅道 Bug 添加备注/评论 |
+| ZenTao Bug Resolve | `skills/zentao-bug-resolve/` | 通过会话登录与 bug/resolve 接口将禅道 Bug 标为 resolved 并附加备注 |
 
 ## 使用方式
 

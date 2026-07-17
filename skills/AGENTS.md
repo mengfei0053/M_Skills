@@ -26,6 +26,7 @@ This AGENTS.md scopes guidance to `skills`. Parent AGENTS guidance still applies
 - `programming-standards/`
 - `worktree/`
 - `zentao-bug-comment/`
+- `zentao-bug-resolve/`
 
 <!-- OMX:AGENTS-INIT:MANUAL:START -->
 ## Local Notes

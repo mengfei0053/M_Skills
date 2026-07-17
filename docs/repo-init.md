@@ -40,6 +40,7 @@ M_Skills 是个人常用 Skills 收集仓库，用于沉淀可复用的工作流
 | `programming-standards` | `skills/programming-standards/SKILL.md` | 用户级通用 | 通用代码质量、命名、错误处理、测试性和 Review 标准 |
 | `worktree` | `skills/worktree/SKILL.md` | 用户级通用 | 为单个需求创建隔离 Git worktree 与任务分支 |
 | `zentao-bug-comment` | `skills/zentao-bug-comment/SKILL.md` | 用户级通用 | 通过会话登录与 action/comment 接口给禅道 Bug 添加备注/评论 |
+| `zentao-bug-resolve` | `skills/zentao-bug-resolve/SKILL.md` | 用户级通用 | 通过会话登录与 bug/resolve 接口将禅道 Bug 标为 resolved 并附加备注 |
 
 ## 安装策略
 

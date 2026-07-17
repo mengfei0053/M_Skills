@@ -11,7 +11,7 @@ license: MIT
 metadata:
   hermes:
     tags: [zentao, 禅道, bug, comment, 备注, api]
-    related_skills: [zentao-cli]
+    related_skills: [zentao-cli, zentao-bug-resolve]
 ---
 
 # ZenTao Bug Comment
@@ -22,6 +22,8 @@ metadata:
 
 优先执行本 Skill 自带脚本，不要手写一次性请求，也不要用网页抓取旁路。
 
+需要把 Bug 标为 `resolved` 并附备注时，改用 `zentao-bug-resolve`。
+
 ## When to Use
 
 - 用户要求给禅道 Bug 添加评论、备注、留言。
@@ -30,7 +32,7 @@ metadata:
 
 Don't use for:
 
-- 创建 / 修改 / 解决 / 关闭 Bug（继续用 `zentao-cli` 或 MCP）。
+- 解决 / 关闭 Bug（解决并备注用 `zentao-bug-resolve`；关闭用 close 流程）。
 - 给任务、需求、测试单等非 Bug 对象加备注（本 Skill 仅覆盖 Bug）。
 - 未配置本机禅道认证且无法登录时。
 
