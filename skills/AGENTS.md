@@ -21,9 +21,11 @@ This AGENTS.md scopes guidance to `skills`. Parent AGENTS guidance still applies
 - `apply-worktree/`
 - `auto-commit-push/`
 - `deeb-init/`
+- `github-search/`
 - `karpathy-guidelines/`
 - `programming-standards/`
 - `worktree/`
+- `zentao-bug-comment/`
 
 <!-- OMX:AGENTS-INIT:MANUAL:START -->
 ## Local Notes

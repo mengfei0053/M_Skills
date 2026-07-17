@@ -1,6 +1,6 @@
 # Repository Init Notes
 
-> 更新时间：2026-07-09
+> 更新时间：2026-07-17
 > 用途：给后续 Agent / 人工维护者快速接手本仓库，并明确“后续修改及时更新”的同步规则。
 
 ## 项目定位
@@ -39,6 +39,7 @@ M_Skills 是个人常用 Skills 收集仓库，用于沉淀可复用的工作流
 | `karpathy-guidelines` | `skills/karpathy-guidelines/SKILL.md` | 用户级通用 | 减少 LLM 常见编码失误：先思考、保持简单、精准改动、目标驱动验证 |
 | `programming-standards` | `skills/programming-standards/SKILL.md` | 用户级通用 | 通用代码质量、命名、错误处理、测试性和 Review 标准 |
 | `worktree` | `skills/worktree/SKILL.md` | 用户级通用 | 为单个需求创建隔离 Git worktree 与任务分支 |
+| `zentao-bug-comment` | `skills/zentao-bug-comment/SKILL.md` | 用户级通用 | 通过会话登录与 action/comment 接口给禅道 Bug 添加备注/评论 |
 
 ## 安装策略
 

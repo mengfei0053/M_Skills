@@ -105,7 +105,8 @@ M_Skills/
 │   ├── github-search/
 │   ├── karpathy-guidelines/
 │   ├── programming-standards/
-│   └── worktree/
+│   ├── worktree/
+│   └── zentao-bug-comment/
 └── templates/        # 可复用配置或文档模板
 ```
 
@@ -120,6 +121,7 @@ M_Skills/
 | Karpathy Guidelines | `skills/karpathy-guidelines/` | 减少 LLM 常见编码失误的行为准则：先思考、保持简单、精准改动、目标驱动验证 |
 | Programming Standards | `skills/programming-standards/` | 通用编程规范，覆盖职责、命名、防御性编程、错误处理、日志和可测试性 |
 | Worktree | `skills/worktree/` | 为单个需求创建独立 Git worktree 和任务分支，隔离开发过程 |
+| ZenTao Bug Comment | `skills/zentao-bug-comment/` | 通过会话登录与 action/comment 接口给禅道 Bug 添加备注/评论 |
 
 ## 使用方式
 
